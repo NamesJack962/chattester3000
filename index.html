@@ -3,37 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mesh P2P | Unified</title>
+    <title>Mesh P2P | Reliable Voice</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #050505;
-            color: #cbd5e1;
-            touch-action: manipulation;
-        }
-
+        body { font-family: 'Inter', sans-serif; background-color: #050505; color: #cbd5e1; touch-action: manipulation; }
         .h-screen-safe { height: 100dvh; }
-
-        #sidebar {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .voice-active {
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
-            border-color: rgba(16, 185, 129, 0.3) !important;
-        }
-
-        /* Prevent zoom on mobile inputs */
+        #sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .voice-active { box-shadow: 0 0 20px rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3) !important; }
         input { font-size: 16px !important; }
-
-        .message-bubble {
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-        }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
 </head>
 <body class="h-screen-safe overflow-hidden flex flex-col">
@@ -41,46 +22,31 @@
     <!-- Header -->
     <header class="h-14 border-b border-white/5 bg-[#0a0a0a] flex items-center justify-between px-4 z-40 shrink-0">
         <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="p-2 md:hidden text-slate-400 active:bg-white/5 rounded-lg">
-                <i data-lucide="menu" class="w-5 h-5"></i>
-            </button>
-            <div class="p-1.5 bg-indigo-600 rounded-lg hidden sm:block">
-                <i data-lucide="zap" class="text-white w-4 h-4"></i>
-            </div>
+            <button onclick="toggleSidebar()" class="p-2 md:hidden text-slate-400 active:bg-white/5 rounded-lg"><i data-lucide="menu" class="w-5 h-5"></i></button>
+            <div class="p-1.5 bg-indigo-600 rounded-lg hidden sm:block"><i data-lucide="zap" class="text-white w-4 h-4"></i></div>
             <h1 class="font-bold text-white tracking-tighter text-sm uppercase">Mesh</h1>
         </div>
-        
         <div class="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/5">
-            <div id="status-dot" class="w-1.5 h-1.5 rounded-full bg-slate-600 transition-colors"></div>
-            <span id="status-text" class="text-[9px] font-black uppercase text-slate-500">Standby</span>
+            <div id="status-dot" class="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
+            <span id="status-text" class="text-[9px] font-black uppercase text-slate-500">Offline</span>
         </div>
-
-        <button onclick="openModal('profile')" class="p-2 text-slate-500 hover:text-white">
-            <i data-lucide="user" class="w-5 h-5"></i>
-        </button>
+        <button onclick="openModal('profile')" class="p-2 text-slate-500 hover:text-white"><i data-lucide="user" class="w-5 h-5"></i></button>
     </header>
 
     <div class="flex-1 flex overflow-hidden relative">
-        <!-- Sidebar -->
         <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-30 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
         
         <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 bg-[#0a0a0a] border-r border-white/5 flex flex-col z-40 -translate-x-full md:translate-x-0 md:static">
-            <!-- Unified Control Panel -->
             <div class="p-4">
                 <div id="voice-panel" class="bg-white/5 border border-white/5 rounded-2xl p-4 transition-all duration-300">
                     <div class="flex items-center justify-between mb-4">
                         <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Audio Stream</span>
-                        <button id="mic-btn" onclick="toggleMic()" class="p-2.5 rounded-xl bg-slate-800 text-slate-500 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
-                            <i data-lucide="mic-off" class="w-4 h-4"></i>
-                        </button>
+                        <button id="mic-btn" onclick="toggleMic()" class="p-2.5 rounded-xl bg-slate-800 text-slate-500 hover:bg-slate-700"><i data-lucide="mic-off" class="w-4 h-4"></i></button>
                     </div>
-                    <div id="voice-status" class="text-center">
-                        <p class="text-[9px] text-slate-600 italic">Mic inactive</p>
-                    </div>
+                    <div id="voice-status" class="text-center"><p class="text-[9px] text-slate-600 italic">Mic inactive</p></div>
                 </div>
             </div>
 
-            <!-- Branch Navigator -->
             <div class="flex-1 overflow-y-auto px-4">
                 <div class="px-2 mb-2 flex items-center justify-between text-[10px] font-black text-slate-600 uppercase">
                     <span>Active Branches</span>
@@ -89,51 +55,39 @@
                 <div id="room-list" class="space-y-1"></div>
             </div>
 
-            <!-- Main Actions -->
             <div class="p-4 space-y-2 border-t border-white/5">
-                <button onclick="startUnifiedHost()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+                <button onclick="startUnifiedHost()" class="w-full py-4 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i> Host Mesh
                 </button>
-                <button onclick="openModal('join')" class="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all">
+                <button onclick="openModal('join')" class="w-full py-4 bg-slate-800 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
                     <i data-lucide="key" class="w-4 h-4"></i> Join Bridge
                 </button>
             </div>
         </aside>
 
-        <!-- Chat Area -->
         <main class="flex-1 flex flex-col bg-[#050505] min-w-0">
             <div class="h-10 border-b border-white/5 flex items-center px-4 md:px-8 bg-[#070707]/50">
                 <span id="header-room-name" class="text-[10px] font-bold text-white uppercase truncate">Global Root</span>
             </div>
-
-            <div id="chat-window" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-4">
-                <div class="h-full flex flex-col items-center justify-center opacity-20 text-center select-none">
-                    <i data-lucide="network" class="w-12 h-12 mb-4"></i>
-                    <p class="text-xs font-black uppercase tracking-widest">Isolated Node</p>
-                </div>
-            </div>
-
+            <div id="chat-window" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-4"></div>
             <footer class="p-4 bg-[#050505] border-t border-white/5">
                 <div class="max-w-4xl mx-auto flex gap-2 bg-[#0f0f0f] border border-white/10 rounded-2xl p-1 shadow-2xl">
-                    <input id="msg-input" type="text" placeholder="Broadcast to peers..." class="flex-1 bg-transparent border-none px-4 text-sm focus:ring-0 text-slate-100 placeholder:text-slate-600 outline-none">
-                    <button onclick="sendMessage()" class="p-3 bg-indigo-600 text-white rounded-xl active:scale-95 transition-transform">
-                        <i data-lucide="send" class="w-4 h-4"></i>
-                    </button>
+                    <input id="msg-input" type="text" placeholder="Message..." class="flex-1 bg-transparent border-none px-4 text-sm focus:ring-0 text-slate-100 placeholder:text-slate-600 outline-none">
+                    <button onclick="sendMessage()" class="p-3 bg-indigo-600 text-white rounded-xl active:scale-95 transition-transform"><i data-lucide="send" class="w-4 h-4"></i></button>
                 </div>
             </footer>
         </main>
     </div>
 
-    <!-- Modals -->
     <div id="modal-backdrop" class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div id="modal-container" class="bg-[#0f0f0f] border-t sm:border border-white/10 rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-sm p-8 sm:p-10 relative shadow-2xl transition-transform duration-300 translate-y-full sm:translate-y-0">
-            <button onclick="closeModal()" class="absolute top-6 right-6 text-slate-500"><i data-lucide="x" class="w-6 h-6"></i></button>
+            <button onclick="closeModal()" class="absolute top-6 right-6 text-slate-500 p-2"><i data-lucide="x" class="w-6 h-6"></i></button>
             <div id="modal-content" class="text-center space-y-6"></div>
         </div>
     </div>
 
     <script>
-        // --- State Management ---
+        // --- State ---
         let state = {
             username: localStorage.getItem('mesh_name') || `User_${Math.random().toString(36).substr(2, 3)}`,
             userId: localStorage.getItem('mesh_id') || Math.random().toString(36).substr(2, 9),
@@ -144,21 +98,13 @@
             pc: null,
             localStream: null,
             isMicEnabled: false,
-            signalingCode: null
+            pollInterval: null
         };
         localStorage.setItem('mesh_id', state.userId);
 
-        // --- View Updates ---
-        const ui = {
-            chat: document.getElementById('chat-window'),
-            rooms: document.getElementById('room-list'),
-            statusDot: document.getElementById('status-dot'),
-            statusText: document.getElementById('status-text'),
-            micBtn: document.getElementById('mic-btn'),
-            voicePanel: document.getElementById('voice-panel'),
-            voiceStatus: document.getElementById('voice-status')
-        };
+        const apiBase = "https://kv.val.run/mesh-sig-";
 
+        // --- View & UI ---
         function toggleSidebar() {
             const sb = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
@@ -170,17 +116,19 @@
         }
 
         function updateStatusUI() {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
             if (state.peers.length > 0) {
-                ui.statusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
-                ui.statusText.innerText = `${state.peers.length} PEER${state.peers.length > 1 ? 'S' : ''}`;
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+                text.innerText = `${state.peers.length} ACTIVE`;
             } else {
-                ui.statusDot.className = 'w-1.5 h-1.5 rounded-full bg-slate-600';
-                ui.statusText.innerText = 'STANDBY';
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-600';
+                text.innerText = 'OFFLINE';
             }
         }
 
         function renderRooms() {
-            ui.rooms.innerHTML = state.rooms.map(room => {
+            document.getElementById('room-list').innerHTML = state.rooms.map(room => {
                 const depth = room.path.length - 1;
                 const active = state.activeRoom === room.id;
                 return `<button onclick="switchRoom('${room.id}')" style="margin-left: ${depth * 12}px" class="w-full text-left p-3 flex items-center gap-3 rounded-xl text-xs transition-all ${active ? 'bg-indigo-500/10 text-indigo-400 font-bold' : 'text-slate-500 hover:bg-white/5'}">
@@ -200,143 +148,94 @@
         }
 
         function renderMessages() {
+            const chat = document.getElementById('chat-window');
             const filtered = state.messages.filter(m => m.roomId === state.activeRoom);
             if (filtered.length === 0 && state.peers.length === 0) {
-                ui.chat.innerHTML = `<div class="h-full flex flex-col items-center justify-center opacity-20 text-center"><i data-lucide="network" class="w-12 h-12 mb-4"></i><p class="text-[10px] font-black uppercase tracking-widest">Isolated Node</p></div>`;
+                chat.innerHTML = `<div class="h-full flex flex-col items-center justify-center opacity-20 text-center"><i data-lucide="network" class="w-12 h-12 mb-4"></i><p class="text-[10px] font-black uppercase tracking-widest">Awaiting Peers</p></div>`;
             } else {
-                ui.chat.innerHTML = filtered.map(m => {
+                chat.innerHTML = filtered.map(m => {
                     const isMe = m.senderId === state.userId;
                     return `<div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
                         <span class="text-[8px] text-slate-600 mb-1 px-1 uppercase font-bold">${isMe ? 'You' : m.senderName}</span>
-                        <div class="message-bubble px-4 py-2.5 rounded-2xl text-sm max-w-[85%] ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#1a1a1a] text-slate-200 rounded-tl-none border border-white/5'}">
+                        <div class="px-4 py-2.5 rounded-2xl text-sm max-w-[85%] ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#1a1a1a] text-slate-200 rounded-tl-none border border-white/5'}">
                             ${m.text}
                         </div>
                     </div>`;
                 }).join('');
-                ui.chat.scrollTop = ui.chat.scrollHeight;
+                chat.scrollTop = chat.scrollHeight;
             }
             lucide.createIcons();
         }
 
-        // --- Voice Engine (Fail-safe) ---
-        async function toggleMic() {
-            if (state.isMicEnabled) {
-                stopLocalMic();
-            } else {
-                await startLocalMic();
-            }
+        // --- Signaling ---
+        async function sendSignal(id, data) {
+            try { await fetch(apiBase + id, { method: 'POST', body: JSON.stringify(data) }); } catch(e){}
+        }
+        async function getSignal(id) {
+            try { const r = await fetch(apiBase + id); return r.ok ? await r.json() : null; } catch(e){ return null; }
         }
 
-        async function startLocalMic() {
-            try {
-                state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                state.isMicEnabled = true;
-                
-                ui.micBtn.className = 'p-2.5 rounded-xl bg-emerald-600 text-white shadow-lg active:scale-95';
-                ui.micBtn.innerHTML = '<i data-lucide="mic" class="w-4 h-4"></i>';
-                ui.voicePanel.classList.add('voice-active');
-                ui.voiceStatus.innerHTML = `<div class="flex items-center gap-2 bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div><span class="text-[9px] font-bold text-emerald-400 uppercase">Live</span></div>`;
-                
-                // Inject into existing connection if any
-                if (state.pc) {
-                    state.localStream.getTracks().forEach(track => state.pc.addTrack(track, state.localStream));
-                    // Note: In a real p2p mesh, we'd need to re-negotiate (re-offer), 
-                    // but for this simplified bridge we prioritize initial track presence.
-                }
-            } catch (err) {
-                console.warn("Mic access denied", err);
-                ui.voiceStatus.innerHTML = `<p class="text-[9px] text-rose-500 font-bold uppercase">Hardware Blocked</p>`;
-                state.isMicEnabled = false;
-            }
-            lucide.createIcons();
+        // --- Connection Engine ---
+        function createPC() {
+            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            pc.ontrack = (e) => {
+                const audio = new Audio(); audio.srcObject = e.streams[0]; audio.play();
+                updateVoiceStatus('Incoming stream...');
+            };
+            return pc;
         }
 
-        function stopLocalMic() {
-            state.localStream?.getTracks().forEach(t => t.stop());
-            state.localStream = null;
-            state.isMicEnabled = false;
-            ui.micBtn.className = 'p-2.5 rounded-xl bg-slate-800 text-slate-500 hover:bg-slate-700';
-            ui.micBtn.innerHTML = '<i data-lucide="mic-off" class="w-4 h-4"></i>';
-            ui.voicePanel.classList.remove('voice-active');
-            ui.voiceStatus.innerHTML = `<p class="text-[9px] text-slate-600 italic">Mic inactive</p>`;
-            lucide.createIcons();
-        }
-
-        // --- P2P Network (Unified) ---
         async function startUnifiedHost() {
-            // Attempt voice first, but don't block if it fails
-            await startLocalMic();
-            
+            await tryMic();
             openModal('loading');
             const code = Math.floor(100000 + Math.random() * 900000).toString();
             state.pc = createPC();
-            
-            const dc = state.pc.createDataChannel("mesh_data");
+            const dc = state.pc.createDataChannel("mesh");
             setupDC(dc);
 
-            // Add audio if available
-            if (state.localStream) {
-                state.localStream.getTracks().forEach(t => state.pc.addTrack(t, state.localStream));
-            }
+            if (state.localStream) state.localStream.getTracks().forEach(t => state.pc.addTrack(t, state.localStream));
 
-            state.pc.onicecandidate = (e) => {
-                if (!e.candidate) relay(code, { type: 'offer', sdp: state.pc.localDescription, name: state.username });
+            state.pc.onicecandidate = async (e) => {
+                if (!e.candidate) {
+                    await sendSignal(code, { sdp: state.pc.localDescription, name: state.username });
+                }
             };
 
             const offer = await state.pc.createOffer();
             await state.pc.setLocalDescription(offer);
             renderInviteUI(code);
 
-            const timer = setInterval(async () => {
-                const data = await fetchRelay(`${code}-ans`);
-                if (data && state.pc.signalingState === 'have-local-offer') {
-                    clearInterval(timer);
-                    await state.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            // Wait for answer
+            state.pollInterval = setInterval(async () => {
+                const signal = await getSignal(code + "-ans");
+                if (signal && state.pc.signalingState === 'have-local-offer') {
+                    clearInterval(state.pollInterval);
+                    await state.pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
                 }
-            }, 3000);
-        }
-
-        function createPC() {
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-            pc.ontrack = (e) => {
-                const audio = new Audio();
-                audio.srcObject = e.streams[0];
-                audio.play();
-                notifyRemoteAudio(true);
-            };
-            pc.oniceconnectionstatechange = () => {
-                if (pc.iceConnectionState === 'disconnected') {
-                    state.peers = [];
-                    updateStatusUI();
-                    notifyRemoteAudio(false);
-                }
-            };
-            return pc;
+            }, 1000);
         }
 
         async function joinMesh(code) {
             if (code.length < 6) return;
             openModal('loading');
-            
-            // Try mic for two-way audio
-            await startLocalMic();
+            await tryMic();
 
-            const data = await fetchRelay(code);
-            if (!data) return alert("Bridge code invalid or expired.");
+            const signal = await getSignal(code);
+            if (!signal) { closeModal(); alert("Invalid or expired code."); return; }
 
             state.pc = createPC();
             state.pc.ondatachannel = (e) => setupDC(e.channel);
 
-            if (state.localStream) {
-                state.localStream.getTracks().forEach(t => state.pc.addTrack(t, state.localStream));
-            }
+            if (state.localStream) state.localStream.getTracks().forEach(t => state.pc.addTrack(t, state.localStream));
 
-            await state.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            await state.pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
             const ans = await state.pc.createAnswer();
             await state.pc.setLocalDescription(ans);
 
-            state.pc.onicecandidate = (e) => {
-                if (!e.candidate) relay(`${code}-ans`, { type: 'answer', sdp: state.pc.localDescription });
+            state.pc.onicecandidate = async (e) => {
+                if (!e.candidate) {
+                    await sendSignal(code + "-ans", { sdp: state.pc.localDescription });
+                }
             };
         }
 
@@ -346,6 +245,7 @@
                 updateStatusUI();
                 closeModal();
                 dc.send(JSON.stringify({ type: 'sync', rooms: state.rooms, name: state.username }));
+                renderMessages();
             };
             dc.onmessage = (e) => {
                 const data = JSON.parse(e.data);
@@ -363,16 +263,57 @@
             };
         }
 
-        async function relay(code, data) {
-            await fetch(`https://kv.val.run/mesh-u-${code}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).catch(()=>{});
+        // --- Audio Logic ---
+        async function tryMic() {
+            try {
+                state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                state.isMicEnabled = true;
+                updateMicUI(true);
+            } catch(e) { 
+                console.warn("Mic denied"); 
+                state.isMicEnabled = false;
+                updateMicUI(false);
+            }
         }
 
-        async function fetchRelay(code) {
-            const r = await fetch(`https://kv.val.run/mesh-u-${code}`).catch(() => null);
-            return r && r.ok ? r.json() : null;
+        function toggleMic() {
+            if (state.isMicEnabled) {
+                state.localStream?.getTracks().forEach(t => t.stop());
+                state.isMicEnabled = false;
+                updateMicUI(false);
+            } else {
+                tryMic();
+            }
         }
 
-        // --- Logic Utils ---
+        function updateMicUI(on) {
+            const btn = document.getElementById('mic-btn');
+            const panel = document.getElementById('voice-panel');
+            const status = document.getElementById('voice-status');
+            if (on) {
+                btn.className = 'p-2.5 rounded-xl bg-emerald-600 text-white shadow-lg active:scale-95';
+                btn.innerHTML = '<i data-lucide="mic" class="w-4 h-4"></i>';
+                panel.classList.add('voice-active');
+                status.innerHTML = `<div class="flex items-center gap-2 bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div><span class="text-[9px] font-bold text-emerald-400 uppercase">Streaming</span></div>`;
+            } else {
+                btn.className = 'p-2.5 rounded-xl bg-slate-800 text-slate-500 hover:bg-slate-700';
+                btn.innerHTML = '<i data-lucide="mic-off" class="w-4 h-4"></i>';
+                panel.classList.remove('voice-active');
+                status.innerHTML = `<p class="text-[9px] text-slate-600 italic">Mic muted</p>`;
+            }
+            lucide.createIcons();
+        }
+
+        function updateVoiceStatus(msg) {
+            const status = document.getElementById('voice-status');
+            const el = document.createElement('div');
+            el.className = 'mt-2 text-[8px] font-black uppercase text-indigo-400 pulse';
+            el.innerText = msg;
+            status.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }
+
+        // --- Helpers ---
         function sendMessage() {
             const input = document.getElementById('msg-input');
             const text = input.value.trim();
@@ -382,18 +323,6 @@
             state.peers.forEach(p => p.dc.readyState === 'open' && p.dc.send(JSON.stringify(msg)));
             input.value = '';
             renderMessages();
-        }
-
-        function notifyRemoteAudio(active) {
-            if (active) {
-                const el = document.createElement('div');
-                el.id = 'remote-audio-alert';
-                el.className = 'flex items-center gap-2 bg-indigo-500/10 p-2 rounded-xl border border-indigo-500/20 mt-2';
-                el.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce"></div><span class="text-[9px] font-bold text-indigo-400 uppercase">Incoming Audio</span>`;
-                ui.voiceStatus.appendChild(el);
-            } else {
-                document.getElementById('remote-audio-alert')?.remove();
-            }
         }
 
         function createNewBranch() {
@@ -408,7 +337,6 @@
             switchRoom(nr.id);
         }
 
-        // --- Modal Control ---
         function openModal(type) {
             const back = document.getElementById('modal-backdrop');
             const cont = document.getElementById('modal-container');
@@ -417,35 +345,27 @@
             setTimeout(() => cont.style.transform = 'translateY(0)', 50);
 
             if (type === 'profile') {
-                content.innerHTML = `<h2 class="text-xl font-black text-white uppercase tracking-tighter">Your Alias</h2><input id="name-input" value="${state.username}" class="w-full bg-black border border-white/10 rounded-2xl p-4 text-white text-center outline-none focus:border-indigo-500"><button onclick="saveProfile()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px]">Update Identity</button>`;
+                content.innerHTML = `<h2 class="text-xl font-black text-white uppercase">Alias</h2><input id="name-input" value="${state.username}" class="w-full bg-black border border-white/10 rounded-2xl p-4 text-white text-center outline-none focus:border-indigo-500"><button onclick="saveProfile()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-[10px]">Update</button>`;
             } else if (type === 'join') {
-                content.innerHTML = `<h2 class="text-xl font-black text-white uppercase tracking-tighter">Enter Bridge Code</h2><input id="join-input" type="number" placeholder="000000" class="w-full bg-black border border-white/10 rounded-3xl p-6 text-center text-4xl font-mono text-white outline-none focus:border-indigo-500"><button onclick="joinMesh(document.getElementById('join-input').value)" class="w-full py-5 bg-indigo-600 text-white rounded-3xl font-bold uppercase tracking-widest text-[10px]">Link Nodes</button>`;
+                content.innerHTML = `<h2 class="text-xl font-black text-white uppercase">Bridge Code</h2><input id="join-input" type="number" placeholder="000000" class="w-full bg-black border border-white/10 rounded-3xl p-6 text-center text-4xl font-mono text-white outline-none focus:border-indigo-500"><button onclick="joinMesh(document.getElementById('join-input').value)" class="w-full py-5 bg-indigo-600 text-white rounded-3xl font-bold uppercase text-[10px]">Connect</button>`;
             } else if (type === 'loading') {
-                content.innerHTML = `<div class="py-10"><i data-lucide="loader-2" class="w-10 h-10 text-indigo-500 animate-spin mx-auto"></i><p class="mt-4 text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">Synching Tracks</p></div>`;
+                content.innerHTML = `<div class="py-10"><i data-lucide="loader-2" class="w-10 h-10 text-indigo-500 animate-spin mx-auto"></i><p class="mt-4 text-[9px] font-black uppercase text-slate-500">Connecting Nodes...</p></div>`;
             }
             lucide.createIcons();
         }
 
         function renderInviteUI(code) {
             const content = document.getElementById('modal-content');
-            content.innerHTML = `<h2 class="text-xl font-black text-white uppercase tracking-tighter">Mesh Active</h2><div onclick="copyCode('${code}')" class="text-5xl font-black text-indigo-400 py-10 font-mono bg-black rounded-3xl border border-white/5 cursor-pointer relative">${code}<div id="copy-status" class="absolute bottom-2 right-4 text-[8px] text-slate-600 uppercase font-bold">Tap to copy</div></div><p class="text-[10px] text-slate-500 uppercase tracking-widest">Awaiting peer handshake...</p>`;
+            content.innerHTML = `<h2 class="text-xl font-black text-white uppercase">Waiting for Peer</h2><div onclick="copyCode('${code}')" class="text-5xl font-black text-indigo-400 py-10 font-mono bg-black rounded-3xl border border-white/5 cursor-pointer relative">${code}<div id="copy-status" class="absolute bottom-2 right-4 text-[8px] text-slate-600 uppercase font-bold">Tap to copy</div></div><p class="text-[10px] text-slate-500 uppercase">Keep this open until linked</p>`;
             lucide.createIcons();
         }
 
-        function saveProfile() {
-            state.username = document.getElementById('name-input').value;
-            localStorage.setItem('mesh_name', state.username);
-            closeModal();
-        }
-
+        function saveProfile() { state.username = document.getElementById('name-input').value; localStorage.setItem('mesh_name', state.username); closeModal(); }
         function closeModal() {
-            const back = document.getElementById('modal-backdrop');
-            const cont = document.getElementById('modal-container');
-            cont.style.transform = window.innerWidth < 640 ? 'translateY(100%)' : 'translateY(0)';
-            setTimeout(() => back.classList.add('hidden'), 300);
-            if (pollTimer) clearInterval(pollTimer);
+            document.getElementById('modal-container').style.transform = window.innerWidth < 640 ? 'translateY(100%)' : 'translateY(0)';
+            setTimeout(() => document.getElementById('modal-backdrop').classList.add('hidden'), 300);
+            if (state.pollInterval) clearInterval(state.pollInterval);
         }
-
         function copyCode(code) {
             const ta = document.createElement('textarea'); ta.value = code; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
             document.getElementById('copy-status').innerText = 'Copied!';
@@ -454,10 +374,9 @@
 
         window.onload = () => {
             renderRooms();
-            updateStatusUI();
             renderMessages();
             lucide.createIcons();
-            document.getElementById('msg-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+            document.getElementById('msg-input').onkeydown = e => { if (e.key === 'Enter') sendMessage(); };
         };
     </script>
 </body>
