@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Voice Chat - WebRTC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/lucide.min.js"></script>
+    <style>
+        .visualizer-container {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .bar {
+            flex: 1;
+            background: #3b82f6;
+            min-height: 4px;
+            border-radius: 2px;
+            transition: height 0.05s ease;
+        }
+        .remote-bar { background: #10b981; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
+
+    <div class="max-w-3xl mx-auto px-4 py-12">
+        <header class="text-center mb-12">
+            <div class="inline-flex items-center justify-center p-3 bg-blue-100 text-blue-600 rounded-full mb-4">
+                <i data-lucide="mic" class="w-8 h-8"></i>
+            </div>
+            <h1 class="text-3xl font-bold tracking-tight">P2P Voice Chat</h1>
+            <p class="text-slate-500 mt-2">Pure Peer-to-Peer encrypted audio communication.</p>
+        </header>
+
+        <div class="grid gap-8">
+            
+            <div id="statusCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-lg flex items-center gap-2">
+                        <i data-lucide="activity" class="w-5 h-5"></i> Connection Status
+                    </h2>
+                    <span id="connState" class="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 uppercase">Disconnected</span>
+                </div>
+                
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Your Microphone</label>
+                        <div id="localVisualizer" class="visualizer-container bg-slate-50 rounded-lg p-2 px-4">
+                            </div>
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Remote Audio</label>
+                        <div id="remoteVisualizer" class="visualizer-container bg-slate-50 rounded-lg p-2 px-4">
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex border-b border-slate-100 mb-6">
+                    <button id="tabCaller" class="px-6 py-3 border-b-2 border-blue-500 text-blue-600 font-medium">Host Call</button>
+                    <button id="tabReceiver" class="px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">Join Call</button>
+                </div>
+
+                <div id="hostSection" class="space-y-4">
+                    <p class="text-sm text-slate-600">1. Click "Generate Offer" and send the code to your peer.</p>
+                    <button id="btnCreateOffer" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
+                        <i data-lucide="phone-outgoing" class="w-4 h-4"></i> Generate Offer
+                    </button>
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold text-slate-500">Your Offer Code (Send this):</label>
+                        <textarea id="localSdp" readonly class="w-full h-24 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Click generate above..."></textarea>
+                        <button id="btnCopyOffer" class="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                            <i data-lucide="copy" class="w-3 h-3"></i> Copy to clipboard
+                        </button>
+                    </div>
+                    <div class="pt-4 space-y-2 border-t border-slate-100">
+                        <p class="text-sm text-slate-600">2. Paste the "Answer Code" you receive from your peer below:</p>
+                        <textarea id="remoteAnswerInput" class="w-full h-24 p-3 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Paste answer here..."></textarea>
+                        <button id="btnAcceptAnswer" class="w-full bg-slate-800 hover:bg-black text-white font-medium py-2 px-4 rounded-lg transition">Connect</button>
+                    </div>
+                </div>
+
+                <div id="joinSection" class="hidden space-y-4">
+                    <div class="space-y-2">
+                        <p class="text-sm text-slate-600">1. Paste the "Offer Code" received from the host:</p>
+                        <textarea id="remoteOfferInput" class="w-full h-24 p-3 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Paste offer here..."></textarea>
+                    </div>
+                    <button id="btnCreateAnswer" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
+                        <i data-lucide="phone-incoming" class="w-4 h-4"></i> Generate Answer
+                    </button>
+                    <div class="space-y-2 pt-4 border-t border-slate-100">
+                        <label class="text-xs font-semibold text-slate-500">Your Answer Code (Send this back):</label>
+                        <textarea id="localAnswerSdp" readonly class="w-full h-24 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="The code will appear here..."></textarea>
+                        <button id="btnCopyAnswer" class="text-xs text-emerald-600 hover:underline flex items-center gap-1">
+                            <i data-lucide="copy" class="w-3 h-3"></i> Copy to clipboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-12 text-center text-slate-400 text-sm">
+            <p>Using Native WebRTC API • STUN enabled • No server required</p>
+        </footer>
+    </div>
+
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script>
+        window.onload = function() {
+            // Initialize Lucide Icons
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+            
+            const config = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            };
+
+            let pc = new RTCPeerConnection(config);
+            let localStream = null;
+
+            const stateEl = document.getElementById('connState');
+            const remoteAudio = document.getElementById('remoteAudio');
+            const tabCaller = document.getElementById('tabCaller');
+            const tabReceiver = document.getElementById('tabReceiver');
+            const hostSection = document.getElementById('hostSection');
+            const joinSection = document.getElementById('joinSection');
+
+            // Tab Navigation
+            tabCaller.addEventListener('click', () => {
+                tabCaller.className = "px-6 py-3 border-b-2 border-blue-500 text-blue-600 font-medium";
+                tabReceiver.className = "px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
+                hostSection.classList.remove('hidden');
+                joinSection.classList.add('hidden');
+            });
+
+            tabReceiver.addEventListener('click', () => {
+                tabReceiver.className = "px-6 py-3 border-b-2 border-emerald-500 text-emerald-600 font-medium";
+                tabCaller.className = "px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
