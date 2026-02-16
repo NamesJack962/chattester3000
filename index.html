@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Voice Chat | Password Connect</title>
+    <title>VoiceLink | 6-Digit Connect</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/lucide.min.js"></script>
     <style>
         .visualizer-container {
-            height: 60px;
+            height: 48px;
             display: flex;
             align-items: center;
             gap: 2px;
@@ -16,92 +16,85 @@
         .bar {
             flex: 1;
             background: #3b82f6;
-            min-height: 4px;
-            border-radius: 2px;
-            transition: height 0.05s ease;
+            min-height: 2px;
+            border-radius: 1px;
+            transition: height 0.1s ease;
         }
         .remote-bar { background: #10b981; }
         
-        @keyframes pulse-ring {
-            0% { transform: scale(0.33); opacity: 1; }
-            80%, 100% { opacity: 0; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
-        .pulse-dot::before {
-            content: '';
-            position: absolute; width: 300%; height: 300%;
-            left: -100%; top: -100%;
-            border-radius: 45px; background-color: currentColor;
-            animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
+        .anim-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
+<body class="bg-slate-50 min-h-screen text-slate-900 font-sans flex items-center justify-center p-4">
 
-    <div class="max-w-xl mx-auto px-4 py-12">
+    <div class="max-w-sm w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden">
         <!-- Header -->
-        <header class="text-center mb-10">
-            <div class="inline-flex items-center justify-center p-4 bg-blue-600 text-white rounded-3xl shadow-lg shadow-blue-200 mb-6">
-                <i data-lucide="mic" class="w-8 h-8"></i>
+        <div class="p-8 pb-4 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-3xl mb-4 shadow-xl shadow-blue-100">
+                <i data-lucide="mic-2" class="w-8 h-8"></i>
             </div>
-            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900">Voice Link</h1>
-            <p class="text-slate-500 mt-2">Enter a password to start a private P2P call</p>
-        </header>
+            <h1 class="text-2xl font-black text-slate-800 tracking-tight">VoiceLink</h1>
+            <p class="text-slate-400 text-sm font-medium">Ultra-short code pairing</p>
+        </div>
 
-        <!-- Main Interface -->
-        <div class="grid gap-6">
-            
-            <!-- Connection Status Card -->
-            <div id="statusCard" class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="font-bold text-slate-800 flex items-center gap-2">
-                        <i data-lucide="shield-check" class="w-5 h-5 text-blue-500"></i> Status
-                    </h2>
-                    <div id="connStateWrapper" class="flex items-center gap-2">
-                        <div id="statusPulse" class="relative hidden w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></div>
-                        <span id="connState" class="px-4 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 uppercase tracking-widest">Idle</span>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-2">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">You</span>
-                        <div id="localVisualizer" class="visualizer-container bg-slate-50 rounded-2xl px-4 border border-slate-100"></div>
-                    </div>
-                    <div class="space-y-2">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Peer</span>
-                        <div id="remoteVisualizer" class="visualizer-container bg-slate-50 rounded-2xl px-4 border border-slate-100"></div>
-                    </div>
-                </div>
+        <!-- Connection Indicators -->
+        <div class="px-8 py-4 flex items-center justify-around bg-slate-50/50 border-y border-slate-100">
+            <div class="text-center">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">You</p>
+                <div id="localVisualizer" class="visualizer-container w-24 px-1"></div>
             </div>
+            <div class="h-10 w-px bg-slate-200"></div>
+            <div class="text-center">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Peer</p>
+                <div id="remoteVisualizer" class="visualizer-container w-24 px-1"></div>
+            </div>
+        </div>
 
-            <!-- Join/Host Control -->
-            <div id="setupView" class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-6">
-                <div class="space-y-4">
-                    <label class="block text-sm font-bold text-slate-700">Set Call Password</label>
-                    <div class="relative">
-                        <input type="text" id="roomPassword" class="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-lg font-mono focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" placeholder="e.g. secret-pizza-123">
-                        <i data-lucide="lock" class="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300"></i>
-                    </div>
-                    <p class="text-xs text-slate-400">Share this password with your friend. Both must enter the same one.</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <button id="btnHost" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-blue-100 flex flex-col items-center gap-1 group">
-                        <i data-lucide="radio" class="w-5 h-5 group-hover:scale-110 transition"></i>
-                        <span class="text-xs">Host Room</span>
+        <!-- Main Content -->
+        <div class="p-8 space-y-6">
+            <div id="setupView" class="space-y-6">
+                <div id="hostSection" class="space-y-4">
+                    <button id="btnCreateRoom" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+                        <i data-lucide="radio" class="w-5 h-5"></i> Host a Call
                     </button>
-                    <button id="btnJoin" class="bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-slate-200 flex flex-col items-center gap-1 group">
-                        <i data-lucide="user-plus" class="w-5 h-5 group-hover:scale-110 transition"></i>
-                        <span class="text-xs">Join Room</span>
+                    
+                    <div id="codeDisplay" class="hidden space-y-2 text-center p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                        <p class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Your 6-Digit Code</p>
+                        <div class="text-3xl font-mono font-black text-blue-700 tracking-[0.5em] pl-[0.25em]" id="txtRoomCode">------</div>
+                        <p class="text-[10px] text-blue-500 font-medium anim-pulse">Waiting for peer to join...</p>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center"><span class="w-full border-t border-slate-100"></span></div>
+                    <div class="relative flex justify-center text-xs uppercase font-bold text-slate-300"><span class="bg-white px-2">or</span></div>
+                </div>
+
+                <div id="joinSection" class="space-y-3">
+                    <input type="text" id="inputJoinCode" maxlength="6" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xl font-mono font-bold tracking-[0.3em] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all uppercase" placeholder="000000">
+                    <button id="btnJoinRoom" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-2xl transition shadow-lg">
+                        Join with Code
                     </button>
                 </div>
             </div>
 
-            <div id="activeView" class="hidden text-center">
-                <button onclick="location.reload()" class="bg-red-50 text-red-500 hover:bg-red-100 px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition inline-flex items-center gap-2">
-                    <i data-lucide="phone-off" class="w-4 h-4"></i> End Call & Reset
+            <div id="activeView" class="hidden text-center space-y-6">
+                <div class="flex items-center justify-center gap-2 text-emerald-500 font-bold text-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 anim-pulse"></span>
+                    Encrypted P2P Active
+                </div>
+                <button onclick="location.reload()" class="w-full bg-red-50 text-red-500 hover:bg-red-100 font-bold py-4 rounded-2xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="phone-off" class="w-5 h-5"></i> End Call
                 </button>
             </div>
+        </div>
+
+        <div class="px-8 pb-8 text-center">
+            <p id="statusLabel" class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Ready to Connect</p>
         </div>
     </div>
 
@@ -110,13 +103,11 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Constants from environment
+        // Firebase Setup
         const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'voice-p2p-app';
-        
-        // Initialize Firebase
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'v-p2p-short';
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -124,33 +115,27 @@
         let pc = null;
         let localStream = null;
         let user = null;
-        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-        // UI Refs
-        const stateEl = document.getElementById('connState');
-        const statusPulse = document.getElementById('statusPulse');
+        // UI Selectors
         const setupView = document.getElementById('setupView');
         const activeView = document.getElementById('activeView');
-        const roomInput = document.getElementById('roomPassword');
+        const statusLabel = document.getElementById('statusLabel');
+        const txtRoomCode = document.getElementById('txtRoomCode');
+        const codeDisplay = document.getElementById('codeDisplay');
+        const inputJoinCode = document.getElementById('inputJoinCode');
         const remoteAudio = document.getElementById('remoteAudio');
 
-        // Initial Auth Flow (RULE 3)
+        // Logic: Auth (MANDATORY RULE 3)
         const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Auth failed:", error);
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
             }
         };
 
-        onAuthStateChanged(auth, (u) => {
-            user = u;
-            if (user) console.log("Authenticated as:", user.uid);
-        });
+        onAuthStateChanged(auth, u => { user = u; });
 
         window.onload = () => {
             initAuth();
@@ -159,9 +144,9 @@
             createBars(document.getElementById('remoteVisualizer'));
         };
 
-        // UI Helpers
-        function createBars(container, count = 20) {
-            for (let i = 0; i < count; i++) {
+        // UI: Visualizers
+        function createBars(container) {
+            for (let i = 0; i < 15; i++) {
                 const bar = document.createElement('div');
                 bar.className = 'bar' + (container.id === 'remoteVisualizer' ? ' remote-bar' : '');
                 container.appendChild(bar);
@@ -169,152 +154,117 @@
         }
 
         async function visualize(stream, containerId) {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') await audioContext.resume();
-            const source = audioContext.createMediaStreamSource(stream);
-            const analyser = audioContext.createAnalyser();
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (ctx.state === 'suspended') await ctx.resume();
+            const source = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
             analyser.fftSize = 64;
             source.connect(analyser);
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            const data = new Uint8Array(analyser.frequencyBinCount);
             const bars = document.querySelectorAll(`#${containerId} .bar`);
-            function update() {
-                analyser.getByteFrequencyData(dataArray);
+            const update = () => {
+                analyser.getByteFrequencyData(data);
                 for (let i = 0; i < bars.length; i++) {
-                    const val = dataArray[i] || 0;
-                    bars[i].style.height = `${Math.max(4, (val / 255) * 50)}px`;
+                    bars[i].style.height = `${Math.max(2, (data[i] / 255) * 40)}px`;
                 }
                 requestAnimationFrame(update);
-            }
+            };
             update();
         }
 
-        // WebRTC Logic
-        async function initCall() {
+        // Logic: WebRTC
+        async function initPC() {
             pc = new RTCPeerConnection(rtcConfig);
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
             visualize(localStream, 'localVisualizer');
 
-            pc.ontrack = (event) => {
-                console.log("Remote track received");
-                remoteAudio.srcObject = event.streams[0];
-                visualize(event.streams[0], 'remoteVisualizer');
+            pc.ontrack = e => {
+                remoteAudio.srcObject = e.streams[0];
+                visualize(e.streams[0], 'remoteVisualizer');
             };
 
             pc.oniceconnectionstatechange = () => {
-                stateEl.innerText = pc.iceConnectionState;
+                statusLabel.innerText = pc.iceConnectionState;
                 if (pc.iceConnectionState === 'connected') {
-                    statusPulse.classList.remove('hidden');
-                    stateEl.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-600 uppercase tracking-widest";
+                    setupView.classList.add('hidden');
+                    activeView.classList.remove('hidden');
                 }
             };
         }
 
-        function getRoomPath(password) {
-            // Path: /artifacts/{appId}/public/data/rooms/{password}
-            return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', password.trim().toLowerCase());
+        function getRoomDoc(code) {
+            // RULE 1: Specific path
+            return doc(db, 'artifacts', appId, 'public', 'data', 'calls', code.trim().toUpperCase());
         }
 
-        // Action Handlers
-        document.getElementById('btnHost').onclick = async () => {
-            if (!user) return alert("Waiting for authentication...");
-            const pwd = roomInput.value;
-            if (!pwd) return alert("Enter a password first!");
+        // Logic: Host
+        document.getElementById('btnCreateRoom').onclick = async () => {
+            if (!user) return;
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            txtRoomCode.innerText = code;
+            codeDisplay.classList.remove('hidden');
+            document.getElementById('btnCreateRoom').classList.add('hidden');
             
-            setupView.classList.add('opacity-50', 'pointer-events-none');
-            stateEl.innerText = "Initializing call...";
+            await initPC();
+            const roomRef = getRoomDoc(code);
 
-            await initCall();
-            const roomDoc = getRoomPath(pwd);
-
-            // Handle ICE candidates by appending to arrays in the main document (Avoiding sub-collection permission issues)
-            pc.onicecandidate = async (event) => {
-                if (event.candidate && user) {
-                    await updateDoc(roomDoc, {
-                        callerCandidates: arrayUnion(event.candidate.toJSON())
-                    });
-                }
+            pc.onicecandidate = async e => {
+                if (e.candidate) await updateDoc(roomRef, { hostCandidates: arrayUnion(e.candidate.toJSON()) });
             };
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
-            // Set initial room data
-            await setDoc(roomDoc, { 
+            await setDoc(roomRef, {
                 offer: { type: offer.type, sdp: offer.sdp },
-                callerCandidates: [],
-                calleeCandidates: [],
-                createdAt: Date.now()
+                hostCandidates: [],
+                peerCandidates: []
             });
-            
-            stateEl.innerText = "Waiting for peer...";
-            setupView.classList.add('hidden');
-            activeView.classList.remove('hidden');
 
-            // Listen for changes (Answer and Remote ICE)
-            onSnapshot(roomDoc, (snapshot) => {
-                if (!snapshot.exists()) return;
-                const data = snapshot.data();
-                
-                // Handle Answer
-                if (!pc.currentRemoteDescription && data.answer) {
-                    pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            onSnapshot(roomRef, async snap => {
+                const data = snap.data();
+                if (!pc.currentRemoteDescription && data?.answer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
-
-                // Handle Peer ICE Candidates
-                if (data.calleeCandidates && data.calleeCandidates.length > 0) {
-                    data.calleeCandidates.forEach(candidate => {
-                        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
-                    });
+                if (data?.peerCandidates) {
+                    data.peerCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
                 }
-            }, (err) => console.error("Snapshot error:", err));
+            });
         };
 
-        document.getElementById('btnJoin').onclick = async () => {
-            if (!user) return alert("Waiting for authentication...");
-            const pwd = roomInput.value;
-            if (!pwd) return alert("Enter a password first!");
+        // Logic: Join
+        document.getElementById('btnJoinRoom').onclick = async () => {
+            if (!user) return;
+            const code = inputJoinCode.value.toUpperCase();
+            if (code.length < 6) return alert("Enter 6-digit code");
 
-            setupView.classList.add('opacity-50', 'pointer-events-none');
-            stateEl.innerText = "Connecting to room...";
+            statusLabel.innerText = "Finding room...";
+            const roomRef = getRoomDoc(code);
+            const snap = await getDoc(roomRef);
+            
+            if (!snap.exists()) return alert("Room not found!");
 
-            await initCall();
-            const roomDoc = getRoomPath(pwd);
+            await initPC();
 
-            // Listen for Offer in Room
-            const unsubscribe = onSnapshot(roomDoc, async (snapshot) => {
-                if (!snapshot.exists()) return;
-                const data = snapshot.data();
-                
-                // Process Offer and send Answer
-                if (!pc.currentRemoteDescription && data.offer) {
+            pc.onicecandidate = async e => {
+                if (e.candidate) await updateDoc(roomRef, { peerCandidates: arrayUnion(e.candidate.toJSON()) });
+            };
+
+            onSnapshot(roomRef, async s => {
+                const data = s.data();
+                if (!pc.currentRemoteDescription && data?.offer) {
                     await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
-                    await updateDoc(roomDoc, { 
-                        answer: { type: answer.type, sdp: answer.sdp } 
-                    });
-                    
-                    setupView.classList.add('hidden');
-                    activeView.classList.remove('hidden');
+                    await updateDoc(roomRef, { answer: { type: answer.type, sdp: answer.sdp } });
                 }
-
-                // Handle Peer ICE Candidates
-                if (data.callerCandidates && data.callerCandidates.length > 0) {
-                    data.callerCandidates.forEach(candidate => {
-                        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
-                    });
+                if (data?.hostCandidates) {
+                    data.hostCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
                 }
-            }, (err) => console.error("Snapshot error:", err));
-
-            pc.onicecandidate = async (event) => {
-                if (event.candidate && user) {
-                    await updateDoc(roomDoc, {
-                        calleeCandidates: arrayUnion(event.candidate.toJSON())
-                    });
-                }
-            };
+            });
         };
     </script>
 </body>
 </html>
+
