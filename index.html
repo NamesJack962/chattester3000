@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoiceLink | 6-Digit Connect</title>
+    <title>VoiceLink | P2P Voice Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/lucide.min.js"></script>
+    <!-- PeerJS Library for easy P2P without a backend -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         .visualizer-container {
             height: 48px;
@@ -23,8 +25,8 @@
         .remote-bar { background: #10b981; }
         
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.95); }
         }
         .anim-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
@@ -38,10 +40,10 @@
                 <i data-lucide="mic-2" class="w-8 h-8"></i>
             </div>
             <h1 class="text-2xl font-black text-slate-800 tracking-tight">VoiceLink</h1>
-            <p class="text-slate-400 text-sm font-medium">Ultra-short code pairing</p>
+            <p class="text-slate-400 text-sm font-medium">Encrypted P2P Voice</p>
         </div>
 
-        <!-- Connection Indicators -->
+        <!-- Visualizers -->
         <div class="px-8 py-4 flex items-center justify-around bg-slate-50/50 border-y border-slate-100">
             <div class="text-center">
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">You</p>
@@ -56,215 +58,231 @@
 
         <!-- Main Content -->
         <div class="p-8 space-y-6">
+            <!-- Connection State -->
+            <div id="statusContainer" class="text-center">
+                <span id="statusBadge" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-400">
+                    Initializing...
+                </span>
+            </div>
+
+            <!-- Join/Host Views -->
             <div id="setupView" class="space-y-6">
-                <div id="hostSection" class="space-y-4">
-                    <button id="btnCreateRoom" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
-                        <i data-lucide="radio" class="w-5 h-5"></i> Host a Call
-                    </button>
-                    
-                    <div id="codeDisplay" class="hidden space-y-2 text-center p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-                        <p class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Your 6-Digit Code</p>
-                        <div class="text-3xl font-mono font-black text-blue-700 tracking-[0.5em] pl-[0.25em]" id="txtRoomCode">------</div>
-                        <p class="text-[10px] text-blue-500 font-medium anim-pulse">Waiting for peer to join...</p>
+                <!-- Host Section -->
+                <div class="space-y-3">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Your Connection ID</p>
+                    <div class="relative group">
+                        <div id="myIdDisplay" class="w-full p-4 bg-blue-50 border border-blue-100 rounded-2xl text-center text-lg font-mono font-bold text-blue-700 tracking-wider flex items-center justify-center gap-2">
+                            <span>----</span>
+                        </div>
+                        <button id="btnCopyId" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 transition opacity-0 group-hover:opacity-100">
+                            <i data-lucide="copy" class="w-4 h-4 text-blue-600"></i>
+                        </button>
                     </div>
+                    <p class="text-[10px] text-center text-slate-400">Share this ID with a friend to receive a call.</p>
                 </div>
 
-                <div class="relative">
+                <div class="relative py-2">
                     <div class="absolute inset-0 flex items-center"><span class="w-full border-t border-slate-100"></span></div>
-                    <div class="relative flex justify-center text-xs uppercase font-bold text-slate-300"><span class="bg-white px-2">or</span></div>
+                    <div class="relative flex justify-center text-[10px] uppercase font-bold text-slate-300"><span class="bg-white px-2">or call someone</span></div>
                 </div>
 
-                <div id="joinSection" class="space-y-3">
-                    <input type="text" id="inputJoinCode" maxlength="6" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xl font-mono font-bold tracking-[0.3em] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all uppercase" placeholder="000000">
-                    <button id="btnJoinRoom" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-2xl transition shadow-lg">
-                        Join with Code
+                <!-- Join Section -->
+                <div class="space-y-3">
+                    <input type="text" id="peerIdInput" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-lg font-mono font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" placeholder="Enter Peer ID">
+                    <button id="btnCall" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-2xl transition shadow-lg flex items-center justify-center gap-2 group">
+                        <i data-lucide="phone" class="w-5 h-5 group-hover:rotate-12 transition"></i>
+                        Start Call
                     </button>
                 </div>
             </div>
 
+            <!-- Active View -->
             <div id="activeView" class="hidden text-center space-y-6">
                 <div class="flex items-center justify-center gap-2 text-emerald-500 font-bold text-sm">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 anim-pulse"></span>
-                    Encrypted P2P Active
+                    Call in Progress
                 </div>
-                <button onclick="location.reload()" class="w-full bg-red-50 text-red-500 hover:bg-red-100 font-bold py-4 rounded-2xl transition flex items-center justify-center gap-2">
-                    <i data-lucide="phone-off" class="w-5 h-5"></i> End Call
+                <button id="btnHangup" class="w-full bg-red-50 text-red-500 hover:bg-red-100 font-bold py-4 rounded-2xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="phone-off" class="w-5 h-5"></i> Hang Up
                 </button>
             </div>
         </div>
 
         <div class="px-8 pb-8 text-center">
-            <p id="statusLabel" class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Ready to Connect</p>
+            <p class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Powered by PeerJS • No Server Required</p>
         </div>
     </div>
 
+    <!-- Hidden Audio Output -->
     <audio id="remoteAudio" autoplay></audio>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script>
+        // Use window load to ensure PeerJS and Lucide are ready
+        window.addEventListener('load', function() {
+            // Helper for Lucide icons
+            const refreshIcons = () => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            };
 
-        // Firebase Setup
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'v-p2p-short';
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+            refreshIcons();
 
-        let pc = null;
-        let localStream = null;
-        let user = null;
-        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+            const statusBadge = document.getElementById('statusBadge');
+            const myIdDisplay = document.querySelector('#myIdDisplay span');
+            const peerIdInput = document.getElementById('peerIdInput');
+            const setupView = document.getElementById('setupView');
+            const activeView = document.getElementById('activeView');
+            const remoteAudio = document.getElementById('remoteAudio');
 
-        // UI Selectors
-        const setupView = document.getElementById('setupView');
-        const activeView = document.getElementById('activeView');
-        const statusLabel = document.getElementById('statusLabel');
-        const txtRoomCode = document.getElementById('txtRoomCode');
-        const codeDisplay = document.getElementById('codeDisplay');
-        const inputJoinCode = document.getElementById('inputJoinCode');
-        const remoteAudio = document.getElementById('remoteAudio');
-
-        // Logic: Auth (MANDATORY RULE 3)
-        const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            // Check if PeerJS loaded correctly
+            if (typeof Peer === 'undefined') {
+                statusBadge.innerText = "Error: PeerJS missing";
+                return;
             }
-        };
 
-        onAuthStateChanged(auth, u => { user = u; });
+            let peer = new Peer(); 
+            let localStream = null;
+            let currentCall = null;
 
-        window.onload = () => {
-            initAuth();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            // Initialize Local Audio & Visualizer
+            async function getMedia() {
+                if (localStream) return localStream;
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    visualize(localStream, 'localVisualizer');
+                    return localStream;
+                } catch (err) {
+                    console.error("Media error:", err);
+                    alert("Please allow microphone access to use VoiceLink.");
+                    throw err;
+                }
+            }
+
+            // PeerJS Events
+            peer.on('open', (id) => {
+                myIdDisplay.innerText = id;
+                statusBadge.innerText = "Ready";
+                statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-600";
+            });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Error:", err);
+                statusBadge.innerText = "Error: " + err.type;
+                statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-100 text-red-600";
+            });
+
+            // Receiving a Call
+            peer.on('call', async (call) => {
+                // In a real app, you'd use a custom UI instead of confirm()
+                if (confirm("Incoming call! Accept?")) {
+                    try {
+                        const stream = await getMedia();
+                        call.answer(stream);
+                        handleCall(call);
+                    } catch (e) {
+                        console.error("Failed to answer:", e);
+                    }
+                }
+            });
+
+            // Initiating a Call
+            document.getElementById('btnCall').onclick = async () => {
+                const peerId = peerIdInput.value.trim();
+                if (!peerId) return alert("Please enter a Peer ID");
+                
+                statusBadge.innerText = "Calling...";
+                try {
+                    const stream = await getMedia();
+                    const call = peer.call(peerId, stream);
+                    handleCall(call);
+                } catch (e) {
+                    statusBadge.innerText = "Ready";
+                }
+            };
+
+            function handleCall(call) {
+                currentCall = call;
+                setupView.classList.add('hidden');
+                activeView.classList.remove('hidden');
+                statusBadge.innerText = "Connected";
+                statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600";
+
+                call.on('stream', (remoteStream) => {
+                    remoteAudio.srcObject = remoteStream;
+                    visualize(remoteStream, 'remoteVisualizer');
+                });
+
+                call.on('close', () => hangup());
+                call.on('error', () => hangup());
+            }
+
+            function hangup() {
+                if (currentCall) currentCall.close();
+                location.reload(); 
+            }
+
+            document.getElementById('btnHangup').onclick = hangup;
+
+            // Visualizer Code
+            function createBars(container) {
+                for (let i = 0; i < 15; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'bar' + (container.id === 'remoteVisualizer' ? ' remote-bar' : '');
+                    container.appendChild(bar);
+                }
+            }
             createBars(document.getElementById('localVisualizer'));
             createBars(document.getElementById('remoteVisualizer'));
-        };
 
-        // UI: Visualizers
-        function createBars(container) {
-            for (let i = 0; i < 15; i++) {
-                const bar = document.createElement('div');
-                bar.className = 'bar' + (container.id === 'remoteVisualizer' ? ' remote-bar' : '');
-                container.appendChild(bar);
+            async function visualize(stream, containerId) {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (ctx.state === 'suspended') await ctx.resume();
+                    const source = ctx.createMediaStreamSource(stream);
+                    const analyser = ctx.createAnalyser();
+                    analyser.fftSize = 64;
+                    source.connect(analyser);
+                    const data = new Uint8Array(analyser.frequencyBinCount);
+                    const bars = document.querySelectorAll(`#${containerId} .bar`);
+                    const update = () => {
+                        analyser.getByteFrequencyData(data);
+                        for (let i = 0; i < bars.length; i++) {
+                            if (bars[i]) {
+                                bars[i].style.height = `${Math.max(2, (data[i] / 255) * 40)}px`;
+                            }
+                        }
+                        requestAnimationFrame(update);
+                    };
+                    update();
+                } catch (e) {
+                    console.error("Visualizer setup failed:", e);
+                }
             }
-        }
 
-        async function visualize(stream, containerId) {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            if (ctx.state === 'suspended') await ctx.resume();
-            const source = ctx.createMediaStreamSource(stream);
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 64;
-            source.connect(analyser);
-            const data = new Uint8Array(analyser.frequencyBinCount);
-            const bars = document.querySelectorAll(`#${containerId} .bar`);
-            const update = () => {
-                analyser.getByteFrequencyData(data);
-                for (let i = 0; i < bars.length; i++) {
-                    bars[i].style.height = `${Math.max(2, (data[i] / 255) * 40)}px`;
-                }
-                requestAnimationFrame(update);
+            // Copy Helper
+            document.getElementById('btnCopyId').onclick = () => {
+                const id = myIdDisplay.innerText;
+                if (id === '----') return;
+                
+                const el = document.createElement('textarea');
+                el.value = id;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                
+                const btn = document.getElementById('btnCopyId');
+                const originalIcon = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-500"></i>';
+                refreshIcons();
+                
+                setTimeout(() => { 
+                    btn.innerHTML = originalIcon; 
+                    refreshIcons();
+                }, 2000);
             };
-            update();
-        }
-
-        // Logic: WebRTC
-        async function initPC() {
-            pc = new RTCPeerConnection(rtcConfig);
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-            visualize(localStream, 'localVisualizer');
-
-            pc.ontrack = e => {
-                remoteAudio.srcObject = e.streams[0];
-                visualize(e.streams[0], 'remoteVisualizer');
-            };
-
-            pc.oniceconnectionstatechange = () => {
-                statusLabel.innerText = pc.iceConnectionState;
-                if (pc.iceConnectionState === 'connected') {
-                    setupView.classList.add('hidden');
-                    activeView.classList.remove('hidden');
-                }
-            };
-        }
-
-        function getRoomDoc(code) {
-            // RULE 1: Specific path
-            return doc(db, 'artifacts', appId, 'public', 'data', 'calls', code.trim().toUpperCase());
-        }
-
-        // Logic: Host
-        document.getElementById('btnCreateRoom').onclick = async () => {
-            if (!user) return;
-            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-            txtRoomCode.innerText = code;
-            codeDisplay.classList.remove('hidden');
-            document.getElementById('btnCreateRoom').classList.add('hidden');
-            
-            await initPC();
-            const roomRef = getRoomDoc(code);
-
-            pc.onicecandidate = async e => {
-                if (e.candidate) await updateDoc(roomRef, { hostCandidates: arrayUnion(e.candidate.toJSON()) });
-            };
-
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            await setDoc(roomRef, {
-                offer: { type: offer.type, sdp: offer.sdp },
-                hostCandidates: [],
-                peerCandidates: []
-            });
-
-            onSnapshot(roomRef, async snap => {
-                const data = snap.data();
-                if (!pc.currentRemoteDescription && data?.answer) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                }
-                if (data?.peerCandidates) {
-                    data.peerCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
-                }
-            });
-        };
-
-        // Logic: Join
-        document.getElementById('btnJoinRoom').onclick = async () => {
-            if (!user) return;
-            const code = inputJoinCode.value.toUpperCase();
-            if (code.length < 6) return alert("Enter 6-digit code");
-
-            statusLabel.innerText = "Finding room...";
-            const roomRef = getRoomDoc(code);
-            const snap = await getDoc(roomRef);
-            
-            if (!snap.exists()) return alert("Room not found!");
-
-            await initPC();
-
-            pc.onicecandidate = async e => {
-                if (e.candidate) await updateDoc(roomRef, { peerCandidates: arrayUnion(e.candidate.toJSON()) });
-            };
-
-            onSnapshot(roomRef, async s => {
-                const data = s.data();
-                if (!pc.currentRemoteDescription && data?.offer) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    await updateDoc(roomRef, { answer: { type: answer.type, sdp: answer.sdp } });
-                }
-                if (data?.hostCandidates) {
-                    data.hostCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
-                }
-            });
-        };
+        });
     </script>
 </body>
 </html>
-
