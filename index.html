@@ -107,22 +107,24 @@
 
     <audio id="remoteAudio" autoplay></audio>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global Variables
+        // Constants from environment
         const firebaseConfig = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'voice-p2p-app';
+        
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'voice-p2p-app';
 
         let pc = null;
         let localStream = null;
-        const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        let user = null;
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
         // UI Refs
         const stateEl = document.getElementById('connState');
@@ -132,7 +134,26 @@
         const roomInput = document.getElementById('roomPassword');
         const remoteAudio = document.getElementById('remoteAudio');
 
+        // Initial Auth Flow (RULE 3)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth failed:", error);
+            }
+        };
+
+        onAuthStateChanged(auth, (u) => {
+            user = u;
+            if (user) console.log("Authenticated as:", user.uid);
+        });
+
         window.onload = () => {
+            initAuth();
             if (typeof lucide !== 'undefined') lucide.createIcons();
             createBars(document.getElementById('localVisualizer'));
             createBars(document.getElementById('remoteVisualizer'));
@@ -169,12 +190,13 @@
 
         // WebRTC Logic
         async function initCall() {
-            pc = new RTCPeerConnection(config);
+            pc = new RTCPeerConnection(rtcConfig);
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
             visualize(localStream, 'localVisualizer');
 
             pc.ontrack = (event) => {
+                console.log("Remote track received");
                 remoteAudio.srcObject = event.streams[0];
                 visualize(event.streams[0], 'remoteVisualizer');
             };
@@ -188,103 +210,111 @@
             };
         }
 
-        async function getRoomDoc(password) {
-            // Path structure: /artifacts/{appId}/public/data/rooms/{password}
+        function getRoomPath(password) {
+            // Path: /artifacts/{appId}/public/data/rooms/{password}
             return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', password.trim().toLowerCase());
         }
 
         // Action Handlers
         document.getElementById('btnHost').onclick = async () => {
+            if (!user) return alert("Waiting for authentication...");
             const pwd = roomInput.value;
             if (!pwd) return alert("Enter a password first!");
             
             setupView.classList.add('opacity-50', 'pointer-events-none');
-            stateEl.innerText = "Authenticating...";
+            stateEl.innerText = "Initializing call...";
 
-            await signInAnonymously(auth);
             await initCall();
-            
-            const roomDoc = await getRoomDoc(pwd);
+            const roomDoc = getRoomPath(pwd);
 
-            // Handle ICE candidates
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    const candidatesCol = collection(roomDoc, 'callerCandidates');
-                    addDoc(candidatesCol, event.candidate.toJSON());
+            // Handle ICE candidates by appending to arrays in the main document (Avoiding sub-collection permission issues)
+            pc.onicecandidate = async (event) => {
+                if (event.candidate && user) {
+                    await updateDoc(roomDoc, {
+                        callerCandidates: arrayUnion(event.candidate.toJSON())
+                    });
                 }
             };
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
-            await setDoc(roomDoc, { offer: { type: offer.type, sdp: offer.sdp } });
+            // Set initial room data
+            await setDoc(roomDoc, { 
+                offer: { type: offer.type, sdp: offer.sdp },
+                callerCandidates: [],
+                calleeCandidates: [],
+                createdAt: Date.now()
+            });
             
             stateEl.innerText = "Waiting for peer...";
             setupView.classList.add('hidden');
             activeView.classList.remove('hidden');
 
-            // Listen for Answer
+            // Listen for changes (Answer and Remote ICE)
             onSnapshot(roomDoc, (snapshot) => {
+                if (!snapshot.exists()) return;
                 const data = snapshot.data();
-                if (!pc.currentRemoteDescription && data?.answer) {
-                    const answerDesc = new RTCSessionDescription(data.answer);
-                    pc.setRemoteDescription(answerDesc);
+                
+                // Handle Answer
+                if (!pc.currentRemoteDescription && data.answer) {
+                    pc.setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
-            });
 
-            // Listen for Remote ICE
-            onSnapshot(collection(roomDoc, 'calleeCandidates'), (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === 'added') {
-                        pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-                    }
-                });
-            });
+                // Handle Peer ICE Candidates
+                if (data.calleeCandidates && data.calleeCandidates.length > 0) {
+                    data.calleeCandidates.forEach(candidate => {
+                        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
+                    });
+                }
+            }, (err) => console.error("Snapshot error:", err));
         };
 
         document.getElementById('btnJoin').onclick = async () => {
+            if (!user) return alert("Waiting for authentication...");
             const pwd = roomInput.value;
             if (!pwd) return alert("Enter a password first!");
 
             setupView.classList.add('opacity-50', 'pointer-events-none');
-            stateEl.innerText = "Connecting...";
+            stateEl.innerText = "Connecting to room...";
 
-            await signInAnonymously(auth);
             await initCall();
+            const roomDoc = getRoomPath(pwd);
 
-            const roomDoc = await getRoomDoc(pwd);
-
-            // Listen for Offer
-            onSnapshot(roomDoc, async (snapshot) => {
+            // Listen for Offer in Room
+            const unsubscribe = onSnapshot(roomDoc, async (snapshot) => {
+                if (!snapshot.exists()) return;
                 const data = snapshot.data();
-                if (!pc.currentRemoteDescription && data?.offer) {
+                
+                // Process Offer and send Answer
+                if (!pc.currentRemoteDescription && data.offer) {
                     await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
-                    await updateDoc(roomDoc, { answer: { type: answer.type, sdp: answer.sdp } });
+                    await updateDoc(roomDoc, { 
+                        answer: { type: answer.type, sdp: answer.sdp } 
+                    });
                     
                     setupView.classList.add('hidden');
                     activeView.classList.remove('hidden');
                 }
-            });
 
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    const candidatesCol = collection(roomDoc, 'calleeCandidates');
-                    addDoc(candidatesCol, event.candidate.toJSON());
+                // Handle Peer ICE Candidates
+                if (data.callerCandidates && data.callerCandidates.length > 0) {
+                    data.callerCandidates.forEach(candidate => {
+                        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
+                    });
+                }
+            }, (err) => console.error("Snapshot error:", err));
+
+            pc.onicecandidate = async (event) => {
+                if (event.candidate && user) {
+                    await updateDoc(roomDoc, {
+                        calleeCandidates: arrayUnion(event.candidate.toJSON())
+                    });
                 }
             };
-
-            // Listen for Remote ICE
-            onSnapshot(collection(roomDoc, 'callerCandidates'), (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === 'added') {
-                        pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-                    }
-                });
-            });
         };
     </script>
 </body>
 </html>
-
