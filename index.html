@@ -1,359 +1,365 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoiceLink | P2P Voice Room</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/lucide.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <style>
-        :root {
-            --color-slate: #56536e;
-            --color-taupe: #7e6f5f;
-            --color-grey: #746f73;
-            --color-midnight: #030b19;
-            --color-cloud: #d2dce7;
-        }
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  TreePine, Network, Plus, ChevronRight, ChevronDown, 
+  MapPin, Send, User, Key, ShieldCheck, Zap, X, Copy, Loader2, Settings, Save, UserCircle
+} from 'lucide-react';
 
-        body {
-            background-color: var(--color-cloud);
-            color: var(--color-midnight);
-        }
+/**
+ * P2P Tree Chat with Short Codes & Local Persistence
+ * Uses a public signaling relay for handshake.
+ * Caches User and Branch data to localStorage.
+ */
+export default function App() {
+  // --- Persistent State (Browser Data) ---
+  const [username, setUsername] = useState(() => localStorage.getItem('p2p_username') || `User_${Math.random().toString(36).substring(2, 5)}`);
+  const [myId] = useState(() => {
+    let id = localStorage.getItem('p2p_userId');
+    if (!id) {
+      id = Math.random().toString(36).substring(2, 9);
+      localStorage.setItem('p2p_userId', id);
+    }
+    return id;
+  });
+  
+  const [rooms, setRooms] = useState(() => {
+    const saved = localStorage.getItem('p2p_rooms');
+    return saved ? JSON.parse(saved) : [{ id: 'root', name: 'Global Root', parentId: null, path: ['Global Root'] }];
+  });
 
-        .visualizer-container {
-            height: 48px;
-            display: flex;
-            align-items: center;
-            gap: 2px;
-        }
-        .bar {
-            flex: 1;
-            background: var(--color-slate);
-            min-height: 2px;
-            border-radius: 1px;
-            transition: height 0.1s ease;
-        }
-        .remote-bar { background: var(--color-taupe); }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(0.98); }
-        }
-        .anim-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  const [currentRoomId, setCurrentRoomId] = useState('root');
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [peers, setPeers] = useState([]);
+  
+  // UI & Handshake State
+  const [showModal, setShowModal] = useState(false);
+  const [handshakeMode, setHandshakeMode] = useState(null); // 'host', 'join', 'profile'
+  const [shortCode, setShortCode] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
 
-        .user-tag {
-            background: white;
-            border: 1px solid rgba(86, 83, 110, 0.15);
-            padding: 8px 12px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-    </style>
-</head>
-<body class="min-h-screen font-sans flex items-center justify-center p-4">
+  const pcRef = useRef(null);
+  const pollInterval = useRef(null);
+  const currentRoom = rooms.find(r => r.id === currentRoomId);
 
-    <div class="max-w-sm w-full bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(3,11,25,0.15)] border border-[#56536e]/10 overflow-hidden">
-        <!-- Header -->
-        <div class="p-8 pb-4 text-center">
-            <h1 class="text-3xl font-black text-[#030b19] tracking-tight">VoiceLink</h1>
-            <p class="text-[#746f73] text-sm font-medium mt-1">Private Audio Connectivity</p>
+  // --- Persistence Effects ---
+  useEffect(() => {
+    localStorage.setItem('p2p_username', username);
+  }, [username]);
+
+  useEffect(() => {
+    localStorage.setItem('p2p_rooms', JSON.stringify(rooms));
+  }, [rooms]);
+
+  // --- Signaling Relay Helper ---
+  const relayMessage = async (code, data) => {
+    try {
+      await fetch(`https://kv.val.run/p2p-relay-${code}`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    } catch (e) { console.error("Relay failed", e); }
+  };
+
+  const getRelayMessage = async (code) => {
+    try {
+      const res = await fetch(`https://kv.val.run/p2p-relay-${code}`);
+      return res.ok ? await res.json() : null;
+    } catch (e) { return null; }
+  };
+
+  // --- WebRTC Logic ---
+  const initPC = () => {
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+    return pc;
+  };
+
+  const startHosting = async () => {
+    setIsConnecting(true);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setShortCode(code);
+
+    const pc = initPC();
+    const dc = pc.createDataChannel("tree-mesh");
+    setupDataChannel(dc);
+
+    pc.onicecandidate = async (e) => {
+      if (!e.candidate) {
+        await relayMessage(code, { type: 'offer', sdp: pc.localDescription, from: myId, fromName: username });
+      }
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    pcRef.current = pc;
+
+    pollInterval.current = setInterval(async () => {
+      const data = await getRelayMessage(`${code}-answer`);
+      if (data && data.type === 'answer') {
+        clearInterval(pollInterval.current);
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      }
+    }, 3000);
+  };
+
+  const joinWithCode = async () => {
+    if (shortCode.length !== 6) return;
+    setIsConnecting(true);
+
+    const data = await getRelayMessage(shortCode);
+    if (!data || data.type !== 'offer') {
+      alert("Invalid Code");
+      setIsConnecting(false);
+      return;
+    }
+
+    const pc = initPC();
+    pc.ondatachannel = (e) => setupDataChannel(e.channel);
+    
+    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    pc.onicecandidate = async (e) => {
+      if (!e.candidate) {
+        await relayMessage(`${shortCode}-answer`, { type: 'answer', sdp: pc.localDescription });
+      }
+    };
+  };
+
+  const setupDataChannel = (dc) => {
+    dc.onopen = () => {
+      setPeers(prev => [...prev, { id: 'remote-peer', dc }]);
+      setIsConnecting(false);
+      setShowModal(false);
+      clearInterval(pollInterval.current);
+      // Sync local room structure and my name to the peer
+      dc.send(JSON.stringify({ type: 'sync-init', rooms, senderName: username }));
+    };
+
+    dc.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'chat') setMessages(prev => [...prev, data]);
+      if (data.type === 'new-room') setRooms(prev => [...prev, data.room]);
+      if (data.type === 'sync-init') {
+        // Merge rooms (simplified: take peer's rooms if they have more)
+        if (data.rooms.length > rooms.length) setRooms(data.rooms);
+      }
+    };
+  };
+
+  const sendMessage = () => {
+    if (!inputMessage.trim()) return;
+    const msg = { 
+      type: 'chat', 
+      senderId: myId, 
+      senderName: username, 
+      text: inputMessage, 
+      roomId: currentRoomId, 
+      timestamp: Date.now() 
+    };
+    setMessages(prev => [...prev, msg]);
+    peers.forEach(p => p.dc.readyState === 'open' && p.dc.send(JSON.stringify(msg)));
+    setInputMessage('');
+  };
+
+  const createBranch = () => {
+    const name = prompt("Enter Branch Name:");
+    if (!name) return;
+    const newRoom = {
+      id: Math.random().toString(36).substring(2, 9),
+      name,
+      parentId: currentRoomId,
+      path: [...currentRoom.path, name]
+    };
+    setRooms(prev => [...prev, newRoom]);
+    peers.forEach(p => p.dc.readyState === 'open' && p.dc.send(JSON.stringify({ type: 'new-room', room: newRoom })));
+  };
+
+  return (
+    <div className="flex h-screen bg-[#050505] text-slate-300 font-sans overflow-hidden">
+      {/* Sidebar */}
+      <aside className="w-72 bg-[#0a0a0a] border-r border-white/5 flex flex-col">
+        <div className="p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
+              <TreePine size={20} className="text-white" />
+            </div>
+            <h1 className="font-bold text-white tracking-tighter text-xl">MESH</h1>
+          </div>
+          <button 
+            onClick={() => { setHandshakeMode('profile'); setShowModal(true); }}
+            className="p-2 hover:bg-white/5 rounded-lg text-slate-500 transition-colors"
+          >
+            <Settings size={18} />
+          </button>
         </div>
 
-        <!-- Visualizers -->
-        <div class="px-8 py-4 flex items-center justify-around bg-[#d2dce7]/30 border-y border-[#56536e]/10">
-            <div class="text-center">
-                <p class="text-[9px] font-black text-[#746f73] uppercase tracking-widest mb-2">My Mic</p>
-                <div id="localVisualizer" class="visualizer-container w-24 px-1"></div>
-            </div>
-            <div class="h-10 w-px bg-[#56536e]/20"></div>
-            <div class="text-center">
-                <p class="text-[9px] font-black text-[#746f73] uppercase tracking-widest mb-2">Peer Audio</p>
-                <div id="remoteVisualizer" class="visualizer-container w-24 px-1"></div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="p-8 space-y-6">
-            <!-- Connection State -->
-            <div id="statusContainer" class="text-center">
-                <span id="statusBadge" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#d2dce7] text-[#56536e]">
-                    Offline
-                </span>
-            </div>
-
-            <!-- Setup View -->
-            <div id="setupView" class="space-y-5">
-                <div class="space-y-2">
-                    <p class="text-[10px] font-bold text-[#746f73] uppercase tracking-widest px-1">Your Name</p>
-                    <input type="text" id="usernameInput" maxlength="15" class="w-full p-4 bg-[#d2dce7]/20 border border-[#56536e]/20 rounded-2xl text-lg font-bold text-[#030b19] focus:ring-4 focus:ring-[#56536e]/10 focus:border-[#56536e] outline-none transition-all" placeholder="e.g. Alex">
-                </div>
-
-                <div class="space-y-2">
-                    <p class="text-[10px] font-bold text-[#746f73] uppercase tracking-widest px-1">Room Name</p>
-                    <input type="text" id="roomInput" class="w-full p-4 bg-[#d2dce7]/20 border border-[#56536e]/20 rounded-2xl text-lg font-mono font-bold text-[#030b19] focus:ring-4 focus:ring-[#56536e]/10 focus:border-[#56536e] outline-none transition-all" placeholder="e.g. boardroom">
-                </div>
-
-                <div class="grid grid-cols-2 gap-3 pt-2">
-                    <button id="btnHost" class="bg-[#030b19] hover:bg-black text-[#d2dce7] font-bold h-24 rounded-2xl transition shadow-lg flex flex-col items-center justify-center gap-2">
-                        <i data-lucide="crown" class="w-5 h-5"></i>
-                        <span class="text-xs uppercase tracking-widest">Host</span>
-                    </button>
-                    <button id="btnJoin" class="bg-[#56536e] hover:bg-[#746f73] text-[#d2dce7] font-bold h-24 rounded-2xl transition shadow-lg flex flex-col items-center justify-center gap-2">
-                        <i data-lucide="users" class="w-5 h-5"></i>
-                        <span class="text-xs uppercase tracking-widest">Join</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Active View -->
-            <div id="activeView" class="hidden space-y-6">
-                <div class="p-4 bg-[#d2dce7]/30 border border-[#56536e]/20 rounded-2xl space-y-3">
-                    <div class="flex items-center justify-between">
-                        <p class="text-[9px] font-black text-[#56536e] uppercase tracking-widest">Active Room: <span id="displayRoomName" class="text-[#030b19] ml-1">----</span></p>
-                        <div id="statusDot" class="w-3 h-3 rounded-full bg-[#746f73]"></div>
-                    </div>
-                    
-                    <!-- User List -->
-                    <div class="space-y-2">
-                        <p class="text-[8px] font-bold text-[#746f73] uppercase tracking-widest">Users in Room</p>
-                        <div id="userList" class="space-y-2">
-                            <div class="user-tag">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                <span id="localUserNameDisplay" class="truncate">Me</span>
-                                <span class="text-[8px] ml-auto text-[#746f73] bg-[#d2dce7] px-1.5 py-0.5 rounded">YOU</span>
-                            </div>
-                            <div id="remoteUserTag" class="user-tag opacity-40 italic">
-                                <span class="w-2 h-2 rounded-full bg-[#746f73]"></span>
-                                <span id="remoteUserNameDisplay">Waiting...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <button id="btnLeave" class="w-full bg-[#d2dce7]/50 text-[#030b19] hover:bg-red-50 hover:text-red-700 border border-[#56536e]/20 font-bold py-4 rounded-2xl transition flex items-center justify-center gap-2 text-center">
-                    <i data-lucide="log-out" class="w-5 h-5"></i> Leave Room
+        <div className="flex-1 overflow-y-auto px-4">
+          <div className="px-2 mb-4 flex items-center justify-between text-[10px] uppercase tracking-widest font-black text-slate-600">
+            <span>Network Branches</span>
+            <button onClick={createBranch} className="hover:text-indigo-400 p-1"><Plus size={16}/></button>
+          </div>
+          <div className="space-y-1">
+            {rooms.map(room => (
+              <div key={room.id} style={{ marginLeft: `${(room.path.length - 1) * 12}px` }}>
+                <button
+                  onClick={() => setCurrentRoomId(room.id)}
+                  className={`w-full text-left p-2.5 flex items-center gap-3 hover:bg-white/5 rounded-xl text-sm transition-all group ${currentRoomId === room.id ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'text-slate-400'}`}
+                >
+                  {room.parentId === null ? <Globe size={14} /> : <ChevronRight size={14} className="opacity-40 group-hover:opacity-100" />}
+                  <span className="truncate">{room.name}</span>
                 </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* User Card */}
+        <div className="p-4 m-4 bg-white/5 rounded-2xl border border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+              <UserCircle size={20} />
             </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white truncate">{username}</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Status: {peers.length > 0 ? 'Connected' : 'Local Only'}</p>
+            </div>
+          </div>
         </div>
 
-        <div class="px-8 pb-8 text-center">
-            <p class="text-[9px] font-bold text-[#746f73] uppercase tracking-widest">P2P PeerJS • Static Multi-User Sync</p>
+        <div className="p-4 pt-0 space-y-2">
+          <button onClick={() => { setHandshakeMode('host'); setShowModal(true); startHosting(); }} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/10">
+            <Zap size={14} /> Host Invite
+          </button>
+          <button onClick={() => { setHandshakeMode('join'); setShowModal(true); }} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
+            <ShieldCheck size={14} /> Join Branch
+          </button>
         </div>
+      </aside>
+
+      <main className="flex-1 flex flex-col bg-[#050505] relative">
+        <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-[#070707]/80 backdrop-blur-md sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <MapPin size={16} className="text-indigo-500" />
+            <div>
+              <h2 className="font-bold text-white text-sm">{currentRoom.name}</h2>
+              <p className="text-[9px] text-slate-500 font-mono">{currentRoom.path.join(' / ')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
+              <div className={`w-2 h-2 rounded-full ${peers.length > 0 ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
+              {peers.length} ACTIVE PEERS
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+          {messages.filter(m => m.roomId === currentRoomId).map((msg, i) => (
+            <div key={i} className={`flex flex-col ${msg.senderId === myId ? 'items-end' : 'items-start'}`}>
+              <span className="text-[10px] text-slate-500 mb-1 px-1">{msg.senderId === myId ? 'You' : msg.senderName}</span>
+              <div className={`px-5 py-3 rounded-2xl text-sm max-w-[75%] leading-relaxed ${msg.senderId === myId ? 'bg-indigo-600 text-white rounded-tr-none shadow-lg shadow-indigo-900/20' : 'bg-[#121212] border border-white/5 rounded-tl-none text-slate-200'}`}>
+                {msg.text}
+              </div>
+            </div>
+          ))}
+          {peers.length === 0 && messages.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center opacity-20 select-none">
+              <Network size={80} className="mb-4 text-indigo-500" />
+              <p className="text-xl font-black italic">MESH NETWORK OFFLINE</p>
+              <p className="text-xs uppercase tracking-[0.2em] mt-2">Generate code to synchronize</p>
+            </div>
+          )}
+        </div>
+
+        <footer className="p-6 bg-[#050505]">
+          <div className="max-w-4xl mx-auto flex gap-3 bg-[#0f0f0f] border border-white/10 rounded-[1.25rem] p-2 focus-within:border-indigo-500/50 transition-all shadow-xl">
+            <input 
+              value={inputMessage}
+              onChange={e => setInputMessage(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendMessage()}
+              placeholder={`Message in #${currentRoom.name}...`}
+              className="flex-1 bg-transparent border-none px-4 text-sm focus:ring-0 text-slate-100 placeholder:text-slate-600"
+            />
+            <button onClick={sendMessage} className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20">
+              <Send size={18} />
+            </button>
+          </div>
+        </footer>
+      </main>
+
+      {/* Modals */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-6 backdrop-blur-lg">
+          <div className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] w-full max-w-sm p-10 relative shadow-2xl">
+            <button onClick={() => { setShowModal(false); clearInterval(pollInterval.current); setIsConnecting(false); }} className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors"><X size={22}/></button>
+            
+            {handshakeMode === 'profile' ? (
+               <div className="space-y-6">
+                <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-white/5">
+                  <User size={32} className="text-indigo-500" />
+                </div>
+                <h2 className="text-2xl font-black text-white">Profile</h2>
+                <div className="space-y-2 text-left">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Display Name</label>
+                  <input 
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Enter username..."
+                  />
+                </div>
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2"
+                >
+                  <Save size={18} /> Save Changes
+                </button>
+              </div>
+            ) : handshakeMode === 'host' ? (
+              <div className="space-y-6">
+                <div className="w-16 h-16 bg-indigo-600/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                  <Key className="text-indigo-500" size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-white">Join Code</h2>
+                <div className="text-5xl font-black tracking-[0.2em] text-indigo-400 py-6 font-mono bg-black rounded-3xl border border-white/5">
+                  {shortCode || <Loader2 className="animate-spin mx-auto" />}
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">The mesh is waiting for a peer to respond. Keep this window open.</p>
+                {isConnecting && (
+                  <div className="flex items-center justify-center gap-3 text-emerald-400 text-sm font-bold bg-emerald-500/5 py-3 rounded-xl border border-emerald-500/10">
+                    <Loader2 className="animate-spin" size={16} /> Negotiating Handshake...
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="w-16 h-16 bg-indigo-600/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                  <ShieldCheck className="text-indigo-500" size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-white">Enter Mesh Code</h2>
+                <input 
+                  value={shortCode}
+                  onChange={e => setShortCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full bg-black border border-white/10 rounded-3xl px-4 py-6 text-center text-4xl font-mono tracking-widest text-white focus:border-indigo-500 outline-none shadow-inner"
+                  placeholder="000000"
+                  autoFocus
+                />
+                <button 
+                  onClick={joinWithCode}
+                  disabled={shortCode.length < 6 || isConnecting}
+                  className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-bold disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20"
+                >
+                  {isConnecting ? <Loader2 className="animate-spin" /> : <Zap size={18} />} Connect to Peer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
 
-    <audio id="remoteAudio" autoplay></audio>
-
-    <script>
-        window.addEventListener('load', function() {
-            const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
-            refreshIcons();
-
-            const statusBadge = document.getElementById('statusBadge');
-            const roomInput = document.getElementById('roomInput');
-            const usernameInput = document.getElementById('usernameInput');
-            const displayRoomName = document.getElementById('displayRoomName');
-            const setupView = document.getElementById('setupView');
-            const activeView = document.getElementById('activeView');
-            const remoteAudio = document.getElementById('remoteAudio');
-            const statusDot = document.getElementById('statusDot');
-            const localUserNameDisplay = document.getElementById('localUserNameDisplay');
-            const remoteUserNameDisplay = document.getElementById('remoteUserNameDisplay');
-            const remoteUserTag = document.getElementById('remoteUserTag');
-
-            let peer = null;
-            let localStream = null;
-            let currentCall = null;
-            let dataConn = null;
-            let roomName = "";
-            let userName = "";
-            let userRole = ""; 
-            let heartbeatInterval = null;
-
-            async function getMedia() {
-                if (localStream) return localStream;
-                try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    visualize(localStream, 'localVisualizer');
-                    return localStream;
-                } catch (err) {
-                    alert("Microphone access is required.");
-                    throw err;
-                }
-            }
-
-            function updateConnectionUI(connected, peerName = null) {
-                if (connected) {
-                    statusDot.className = "w-3 h-3 rounded-full bg-[#56536e] anim-pulse shadow-[0_0_8px_rgba(86,83,110,0.4)]";
-                    statusBadge.innerText = "Live";
-                    statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#56536e]/10 text-[#56536e]";
-                    if (peerName) {
-                        remoteUserNameDisplay.innerText = peerName;
-                        remoteUserTag.className = "user-tag";
-                        remoteUserTag.querySelector('span').className = "w-2 h-2 rounded-full bg-[#56536e]";
-                    }
-                } else {
-                    statusDot.className = "w-3 h-3 rounded-full bg-[#746f73]";
-                    statusBadge.innerText = "Ready";
-                    statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#d2dce7] text-[#56536e]";
-                    remoteUserNameDisplay.innerText = "Waiting...";
-                    remoteUserTag.className = "user-tag opacity-40 italic";
-                    remoteUserTag.querySelector('span').className = "w-2 h-2 rounded-full bg-[#746f73]";
-                }
-            }
-
-            function setupDataConnection(conn) {
-                dataConn = conn;
-                
-                // When connected, send our name
-                dataConn.on('open', () => {
-                    dataConn.send({ type: 'HANDSHAKE', name: userName });
-                });
-
-                dataConn.on('data', (data) => {
-                    if (data.type === 'HANDSHAKE') {
-                        updateConnectionUI(true, data.name);
-                    }
-                });
-
-                dataConn.on('close', () => {
-                    updateConnectionUI(false);
-                    dataConn = null;
-                });
-            }
-
-            function handleCall(call) {
-                if (currentCall) currentCall.close();
-                currentCall = call;
-
-                call.on('stream', (stream) => {
-                    remoteAudio.srcObject = stream;
-                    remoteAudio.play().catch(() => {});
-                    visualize(stream, 'remoteVisualizer');
-                    // We don't update name yet, that comes via Data Channel
-                });
-
-                const cleanup = () => {
-                    if (currentCall === call) {
-                        currentCall = null;
-                        updateConnectionUI(false);
-                        const bars = document.querySelectorAll('#remoteVisualizer .bar');
-                        bars.forEach(b => b.style.height = '2px');
-                    }
-                };
-
-                call.on('close', cleanup);
-                call.on('error', cleanup);
-            }
-
-            async function startSession(roleType) {
-                roomName = roomInput.value.trim().toLowerCase();
-                userName = usernameInput.value.trim() || "Anonymous";
-                
-                if (!roomName) return alert("Please enter a room name.");
-
-                userRole = roleType;
-                const peerId = `${roomName}-${userRole}`;
-                
-                setupView.classList.add('hidden');
-                activeView.classList.remove('hidden');
-                displayRoomName.innerText = roomName;
-                localUserNameDisplay.innerText = userName;
-
-                peer = new Peer(peerId);
-
-                peer.on('open', () => {
-                    updateConnectionUI(false);
-                    if (userRole === 'join') {
-                        heartbeatInterval = setInterval(async () => {
-                            if (!currentCall && peer && !peer.destroyed) {
-                                try {
-                                    const stream = await getMedia();
-                                    const call = peer.call(`${roomName}-host`, stream);
-                                    if (call) handleCall(call);
-                                    
-                                    // Also initiate data connection for name sync
-                                    if (!dataConn) {
-                                        const conn = peer.connect(`${roomName}-host`);
-                                        setupDataConnection(conn);
-                                    }
-                                } catch (e) {}
-                            }
-                        }, 3000);
-                    }
-                });
-
-                // Listen for Data Connections (Incoming)
-                peer.on('connection', (conn) => {
-                    setupDataConnection(conn);
-                });
-
-                // Listen for Calls (Incoming)
-                peer.on('call', async (call) => {
-                    try {
-                        const stream = await getMedia();
-                        call.answer(stream);
-                        handleCall(call);
-                    } catch (e) {
-                        console.error("Answer failed", e);
-                    }
-                });
-
-                peer.on('error', (err) => {
-                    if (err.type === 'id-taken') {
-                        alert(`A ${userRole} is already in this room.`);
-                        location.reload();
-                    }
-                });
-            }
-
-            document.getElementById('btnHost').onclick = () => startSession('host');
-            document.getElementById('btnJoin').onclick = () => startSession('join');
-
-            document.getElementById('btnLeave').onclick = () => {
-                if (heartbeatInterval) clearInterval(heartbeatInterval);
-                if (peer) peer.destroy();
-                location.reload();
-            };
-
-            function createBars(container) {
-                for (let i = 0; i < 15; i++) {
-                    const bar = document.createElement('div');
-                    bar.className = 'bar' + (container.id === 'remoteVisualizer' ? ' remote-bar' : '');
-                    container.appendChild(bar);
-                }
-            }
-            createBars(document.getElementById('localVisualizer'));
-            createBars(document.getElementById('remoteVisualizer'));
-
-            async function visualize(stream, containerId) {
-                try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    if (ctx.state === 'suspended') await ctx.resume();
-                    const source = ctx.createMediaStreamSource(stream);
-                    const analyser = ctx.createAnalyser();
-                    analyser.fftSize = 64;
-                    source.connect(analyser);
-                    const data = new Uint8Array(analyser.frequencyBinCount);
-                    const bars = document.querySelectorAll(`#${containerId} .bar`);
-                    const update = () => {
-                        if (ctx.state === 'closed') return;
-                        analyser.getByteFrequencyData(data);
-                        for (let i = 0; i < bars.length; i++) {
-                            if (bars[i]) {
-                                bars[i].style.height = `${Math.max(2, (data[i] / 255) * 40)}px`;
-                            }
-                        }
-                        requestAnimationFrame(update);
-                    };
-                    update();
-                } catch (e) {}
-            }
-        });
-    </script>
-</body>
-</html>
