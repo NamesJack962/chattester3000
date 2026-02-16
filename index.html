@@ -3,12 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoiceLink | P2P Voice Chat</title>
+    <title>VoiceLink | Persistent Room</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/lucide.min.js"></script>
-    <!-- PeerJS Library for easy P2P without a backend -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
+        :root {
+            --color-gold: #c9a96e;
+            --color-tan: #bfa181;
+            --color-bg: #f8f5f0;
+            --color-dark: #2e2e2e;
+            --color-gray: #7d7d7d;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-dark);
+        }
+
         .visualizer-container {
             height: 48px;
             display: flex;
@@ -17,41 +29,43 @@
         }
         .bar {
             flex: 1;
-            background: #3b82f6;
+            background: var(--color-gold);
             min-height: 2px;
             border-radius: 1px;
             transition: height 0.1s ease;
         }
-        .remote-bar { background: #10b981; }
+        .remote-bar { background: var(--color-tan); }
         
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.95); }
+            50% { opacity: 0.5; transform: scale(0.98); }
         }
         .anim-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        .custom-ring:focus {
+            ring-color: var(--color-gold);
+            border-color: var(--color-gold);
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900 font-sans flex items-center justify-center p-4">
+<body class="min-h-screen font-sans flex items-center justify-center p-4">
 
-    <div class="max-w-sm w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden">
+    <div class="max-w-sm w-full bg-white rounded-[2.5rem] shadow-2xl border border-[#bfa181]/20 overflow-hidden">
         <!-- Header -->
         <div class="p-8 pb-4 text-center">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-3xl mb-4 shadow-xl shadow-blue-100">
-                <i data-lucide="mic-2" class="w-8 h-8"></i>
-            </div>
-            <h1 class="text-2xl font-black text-slate-800 tracking-tight">VoiceLink</h1>
-            <p class="text-slate-400 text-sm font-medium">Encrypted P2P Voice</p>
+            <h1 class="text-3xl font-black text-[#2e2e2e] tracking-tight">VoiceLink</h1>
+            <p class="text-[#7d7d7d] text-sm font-medium mt-1">Persistent Audio Room</p>
         </div>
 
         <!-- Visualizers -->
-        <div class="px-8 py-4 flex items-center justify-around bg-slate-50/50 border-y border-slate-100">
+        <div class="px-8 py-4 flex items-center justify-around bg-[#f8f5f0] border-y border-[#bfa181]/20">
             <div class="text-center">
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">You</p>
+                <p class="text-[9px] font-black text-[#7d7d7d] uppercase tracking-widest mb-2">Your Mic</p>
                 <div id="localVisualizer" class="visualizer-container w-24 px-1"></div>
             </div>
-            <div class="h-10 w-px bg-slate-200"></div>
+            <div class="h-10 w-px bg-[#bfa181]/30"></div>
             <div class="text-center">
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Peer</p>
+                <p class="text-[9px] font-black text-[#7d7d7d] uppercase tracking-widest mb-2">Room Audio</p>
                 <div id="remoteVisualizer" class="visualizer-container w-24 px-1"></div>
             </div>
         </div>
@@ -60,169 +74,209 @@
         <div class="p-8 space-y-6">
             <!-- Connection State -->
             <div id="statusContainer" class="text-center">
-                <span id="statusBadge" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-400">
-                    Initializing...
+                <span id="statusBadge" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#f8f5f0] text-[#7d7d7d]">
+                    Not in Room
                 </span>
             </div>
 
-            <!-- Join/Host Views -->
+            <!-- Setup View -->
             <div id="setupView" class="space-y-6">
-                <!-- Host Section -->
                 <div class="space-y-3">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Your Connection ID</p>
-                    <div class="relative group">
-                        <div id="myIdDisplay" class="w-full p-4 bg-blue-50 border border-blue-100 rounded-2xl text-center text-lg font-mono font-bold text-blue-700 tracking-wider flex items-center justify-center gap-2">
-                            <span>----</span>
-                        </div>
-                        <button id="btnCopyId" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 transition opacity-0 group-hover:opacity-100">
-                            <i data-lucide="copy" class="w-4 h-4 text-blue-600"></i>
-                        </button>
-                    </div>
-                    <p class="text-[10px] text-center text-slate-400">Share this ID with a friend to receive a call.</p>
+                    <p class="text-[10px] font-bold text-[#7d7d7d] uppercase tracking-widest text-center">Choose Room Name</p>
+                    <input type="text" id="roomInput" class="w-full p-4 bg-[#f8f5f0] border border-[#bfa181]/30 rounded-2xl text-center text-lg font-mono font-bold text-[#2e2e2e] focus:ring-4 focus:ring-[#c9a96e]/10 focus:border-[#c9a96e] outline-none transition-all" placeholder="e.g. coffee-chat">
+                    <p class="text-[10px] text-center text-[#7d7d7d]">Parties with the same Room Name connect automatically.</p>
                 </div>
 
-                <div class="relative py-2">
-                    <div class="absolute inset-0 flex items-center"><span class="w-full border-t border-slate-100"></span></div>
-                    <div class="relative flex justify-center text-[10px] uppercase font-bold text-slate-300"><span class="bg-white px-2">or call someone</span></div>
-                </div>
-
-                <!-- Join Section -->
-                <div class="space-y-3">
-                    <input type="text" id="peerIdInput" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-lg font-mono font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" placeholder="Enter Peer ID">
-                    <button id="btnCall" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-2xl transition shadow-lg flex items-center justify-center gap-2 group">
-                        <i data-lucide="phone" class="w-5 h-5 group-hover:rotate-12 transition"></i>
-                        Start Call
-                    </button>
-                </div>
+                <button id="btnJoin" class="w-full bg-[#c9a96e] hover:bg-[#bfa181] text-white font-bold py-4 rounded-2xl transition shadow-lg flex items-center justify-center gap-2 group">
+                    <i data-lucide="door-open" class="w-5 h-5 group-hover:translate-x-1 transition"></i>
+                    Enter Room
+                </button>
             </div>
 
             <!-- Active View -->
-            <div id="activeView" class="hidden text-center space-y-6">
-                <div class="flex items-center justify-center gap-2 text-emerald-500 font-bold text-sm">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 anim-pulse"></span>
-                    Call in Progress
+            <div id="activeView" class="hidden space-y-6">
+                <div class="p-4 bg-[#f8f5f0] border border-[#bfa181]/30 rounded-2xl text-center">
+                    <p class="text-[10px] font-bold text-[#bfa181] uppercase tracking-widest mb-1">Active Room</p>
+                    <p id="displayRoomName" class="text-lg font-mono font-bold text-[#2e2e2e]">----</p>
                 </div>
-                <button id="btnHangup" class="w-full bg-red-50 text-red-500 hover:bg-red-100 font-bold py-4 rounded-2xl transition flex items-center justify-center gap-2">
-                    <i data-lucide="phone-off" class="w-5 h-5"></i> Hang Up
+
+                <div id="liveIndicator" class="flex items-center justify-center gap-2 text-[#7d7d7d] font-bold text-sm">
+                    <span id="statusDot" class="w-2 h-2 rounded-full bg-slate-300"></span>
+                    <span id="roomStatusText">Searching...</span>
+                </div>
+
+                <button id="btnLeave" class="w-full bg-[#f8f5f0] text-[#2e2e2e] hover:bg-red-50 hover:text-red-600 border border-[#bfa181]/30 font-bold py-4 rounded-2xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="log-out" class="w-5 h-5"></i> Leave Room
                 </button>
             </div>
         </div>
 
         <div class="px-8 pb-8 text-center">
-            <p class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Powered by PeerJS • No Server Required</p>
+            <p class="text-[9px] font-bold text-[#7d7d7d] uppercase tracking-widest tracking-widest">Automatic P2P Handshake</p>
         </div>
     </div>
 
-    <!-- Hidden Audio Output -->
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        // Use window load to ensure PeerJS and Lucide are ready
         window.addEventListener('load', function() {
-            // Helper for Lucide icons
-            const refreshIcons = () => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
-            };
-
+            const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
             refreshIcons();
 
             const statusBadge = document.getElementById('statusBadge');
-            const myIdDisplay = document.querySelector('#myIdDisplay span');
-            const peerIdInput = document.getElementById('peerIdInput');
+            const roomInput = document.getElementById('roomInput');
+            const displayRoomName = document.getElementById('displayRoomName');
             const setupView = document.getElementById('setupView');
             const activeView = document.getElementById('activeView');
             const remoteAudio = document.getElementById('remoteAudio');
+            const statusDot = document.getElementById('statusDot');
+            const roomStatusText = document.getElementById('roomStatusText');
 
-            // Check if PeerJS loaded correctly
-            if (typeof Peer === 'undefined') {
-                statusBadge.innerText = "Error: PeerJS missing";
-                return;
-            }
-
-            let peer = new Peer(); 
+            let peer = null;
             let localStream = null;
             let currentCall = null;
+            let roomName = "";
+            let role = ""; // 'A' or 'B'
+            let connectionCheckInterval = null;
 
-            // Initialize Local Audio & Visualizer
             async function getMedia() {
                 if (localStream) return localStream;
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     visualize(localStream, 'localVisualizer');
                     return localStream;
                 } catch (err) {
-                    console.error("Media error:", err);
-                    alert("Please allow microphone access to use VoiceLink.");
+                    alert("Mic access needed to join the voice room.");
                     throw err;
                 }
             }
 
-            // PeerJS Events
-            peer.on('open', (id) => {
-                myIdDisplay.innerText = id;
-                statusBadge.innerText = "Ready";
-                statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-600";
-            });
+            function updateUI(connected) {
+                if (connected) {
+                    statusDot.className = "w-2 h-2 rounded-full bg-[#c9a96e] anim-pulse";
+                    roomStatusText.innerText = "Voice Live";
+                    roomStatusText.className = "text-[#c9a96e] font-bold text-sm";
+                } else {
+                    statusDot.className = "w-2 h-2 rounded-full bg-slate-300";
+                    roomStatusText.innerText = "Waiting for peer...";
+                    roomStatusText.className = "text-[#7d7d7d] font-bold text-sm";
+                }
+            }
 
-            peer.on('error', (err) => {
-                console.error("PeerJS Error:", err);
-                statusBadge.innerText = "Error: " + err.type;
-                statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-100 text-red-600";
-            });
+            async function tryConnect(targetId) {
+                if (currentCall || !peer || peer.destroyed) return;
+                try {
+                    const stream = await getMedia();
+                    const call = peer.call(targetId, stream);
+                    if (call) handleCall(call);
+                } catch (e) {
+                    console.error("Call attempt failed:", e);
+                }
+            }
 
-            // Receiving a Call
-            peer.on('call', async (call) => {
-                // In a real app, you'd use a custom UI instead of confirm()
-                if (confirm("Incoming call! Accept?")) {
+            function handleCall(call) {
+                if (currentCall) currentCall.close();
+                currentCall = call;
+                updateUI(true);
+
+                call.on('stream', (stream) => {
+                    remoteAudio.srcObject = stream;
+                    visualize(stream, 'remoteVisualizer');
+                });
+
+                const onDisconnect = () => {
+                    if (currentCall === call) {
+                        currentCall = null;
+                        updateUI(false);
+                        const bars = document.querySelectorAll('#remoteVisualizer .bar');
+                        bars.forEach(b => b.style.height = '2px');
+                    }
+                };
+
+                call.on('close', onDisconnect);
+                call.on('error', onDisconnect);
+            }
+
+            function setupPeerListeners() {
+                peer.on('call', async (call) => {
                     try {
                         const stream = await getMedia();
                         call.answer(stream);
                         handleCall(call);
                     } catch (e) {
-                        console.error("Failed to answer:", e);
+                        console.error("Failed to answer call:", e);
                     }
-                }
-            });
+                });
 
-            // Initiating a Call
-            document.getElementById('btnCall').onclick = async () => {
-                const peerId = peerIdInput.value.trim();
-                if (!peerId) return alert("Please enter a Peer ID");
+                peer.on('disconnected', () => {
+                    if (peer && !peer.destroyed) peer.reconnect();
+                });
+            }
+
+            async function initializePeer(suffix) {
+                if (peer) {
+                    peer.destroy();
+                }
+
+                const id = `${roomName}-${suffix}`;
+                peer = new Peer(id);
+
+                return new Promise((resolve) => {
+                    peer.on('open', (id) => {
+                        role = suffix.toUpperCase();
+                        statusBadge.innerText = `Room Active (${role})`;
+                        setupPeerListeners();
+                        updateUI(false);
+                        
+                        if (role === 'B') {
+                            // User B initiates the connection to User A
+                            tryConnect(`${roomName}-a`);
+                        }
+                        resolve(true);
+                    });
+
+                    peer.on('error', (err) => {
+                        if (err.type === 'id-taken' && suffix === 'a') {
+                            // Slot A is taken, try Slot B
+                            resolve(initializePeer('b'));
+                        } else {
+                            console.error("PeerJS Error:", err);
+                            if (err.type === 'id-taken') {
+                                alert("This room is currently full (2/2 users).");
+                                location.reload();
+                            }
+                            resolve(false);
+                        }
+                    });
+                });
+            }
+
+            document.getElementById('btnJoin').onclick = async () => {
+                roomName = roomInput.value.trim().toLowerCase();
+                if (!roomName) return;
+
+                setupView.classList.add('hidden');
+                activeView.classList.remove('hidden');
+                displayRoomName.innerText = roomName;
+                statusBadge.innerText = "Connecting...";
+
+                const success = await initializePeer('a');
                 
-                statusBadge.innerText = "Calling...";
-                try {
-                    const stream = await getMedia();
-                    const call = peer.call(peerId, stream);
-                    handleCall(call);
-                } catch (e) {
-                    statusBadge.innerText = "Ready";
+                if (success) {
+                    // Periodic check to ensure Slot B is trying to talk to Slot A
+                    connectionCheckInterval = setInterval(() => {
+                        if (!currentCall && peer && !peer.destroyed && role === "B") {
+                            tryConnect(`${roomName}-a`);
+                        }
+                    }, 5000);
                 }
             };
 
-            function handleCall(call) {
-                currentCall = call;
-                setupView.classList.add('hidden');
-                activeView.classList.remove('hidden');
-                statusBadge.innerText = "Connected";
-                statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600";
-
-                call.on('stream', (remoteStream) => {
-                    remoteAudio.srcObject = remoteStream;
-                    visualize(remoteStream, 'remoteVisualizer');
-                });
-
-                call.on('close', () => hangup());
-                call.on('error', () => hangup());
-            }
-
-            function hangup() {
-                if (currentCall) currentCall.close();
-                location.reload(); 
-            }
-
-            document.getElementById('btnHangup').onclick = hangup;
+            document.getElementById('btnLeave').onclick = () => {
+                if (connectionCheckInterval) clearInterval(connectionCheckInterval);
+                if (peer) peer.destroy();
+                location.reload();
+            };
 
             // Visualizer Code
             function createBars(container) {
@@ -246,6 +300,7 @@
                     const data = new Uint8Array(analyser.frequencyBinCount);
                     const bars = document.querySelectorAll(`#${containerId} .bar`);
                     const update = () => {
+                        if (!ctx || ctx.state === 'closed') return;
                         analyser.getByteFrequencyData(data);
                         for (let i = 0; i < bars.length; i++) {
                             if (bars[i]) {
@@ -255,33 +310,8 @@
                         requestAnimationFrame(update);
                     };
                     update();
-                } catch (e) {
-                    console.error("Visualizer setup failed:", e);
-                }
+                } catch (e) {}
             }
-
-            // Copy Helper
-            document.getElementById('btnCopyId').onclick = () => {
-                const id = myIdDisplay.innerText;
-                if (id === '----') return;
-                
-                const el = document.createElement('textarea');
-                el.value = id;
-                document.body.appendChild(el);
-                el.select();
-                document.execCommand('copy');
-                document.body.removeChild(el);
-                
-                const btn = document.getElementById('btnCopyId');
-                const originalIcon = btn.innerHTML;
-                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-500"></i>';
-                refreshIcons();
-                
-                setTimeout(() => { 
-                    btn.innerHTML = originalIcon; 
-                    refreshIcons();
-                }, 2000);
-            };
         });
     </script>
 </body>
