@@ -3,150 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Voice Chat - Natural White Theme</title>
+    <title>Forest Whispers - Lofi Voice Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
         
         :root {
-            /* Natural Palette - White Primary */
-            --theme-white: #FAF9F6;
-            --theme-pure-white: #FFFFFF;
-            --theme-dark-green: #242E24;
-            --theme-light-tan: #F5E6D3;
-            --theme-dark-tan: #E5D6C3;
-            --theme-light-grey: #666666;
-            --theme-muted-green: #D1D8D1;
-            --theme-deep-green: #EDF2ED;
-
-            /* Material 3 Mapping */
-            --md-sys-color-primary: var(--theme-dark-green);
-            --md-sys-color-on-primary: var(--theme-white);
-            --md-sys-color-primary-container: var(--theme-light-tan);
-            --md-sys-color-on-primary-container: var(--theme-dark-green);
-            --md-sys-color-secondary: var(--theme-light-grey);
-            --md-sys-color-on-secondary: #FFFFFF;
-            --md-sys-color-surface: var(--theme-white);
-            --md-sys-color-on-surface: #1A1A1A;
-            --md-sys-color-surface-variant: var(--theme-deep-green);
-            --md-sys-color-outline: var(--theme-muted-green);
+            /* Lofi Woods Palette */
+            --woods-moss: #4A5D4E;
+            --woods-bark: #3E362E;
+            --woods-fog: #E8EBE4;
+            --woods-paper: #FDFBF7;
+            --woods-leaf: #A3B18A;
+            --woods-clay: #D4A373;
+            --woods-shadow: rgba(62, 54, 46, 0.08);
         }
 
         body { 
-            font-family: 'Roboto', sans-serif; 
-            background-color: var(--md-sys-color-surface); 
-            color: var(--md-sys-color-on-surface);
+            font-family: 'Quicksand', sans-serif; 
+            background-color: var(--woods-fog); 
+            color: var(--woods-bark);
             -webkit-font-smoothing: antialiased;
         }
 
-        /* M3 Button Styles */
-        .m3-btn-filled {
-            height: 48px;
+        h1, h2, h3, .serif { font-family: 'Lora', serif; }
+
+        /* Organic UI Components */
+        .lofi-btn-primary {
+            height: 52px;
             padding: 0 32px;
-            border-radius: 24px;
-            background-color: var(--md-sys-color-primary);
-            color: var(--md-sys-color-on-primary);
-            font-weight: 900;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .m3-btn-filled:hover { 
-            filter: brightness(1.2); 
-            box-shadow: 0 4px 15px rgba(36, 46, 36, 0.2); 
-            transform: translateY(-1px);
-        }
-
-        .m3-btn-tonal {
-            height: 40px;
-            padding: 0 24px;
-            border-radius: 20px;
-            background-color: var(--md-sys-color-primary-container);
-            color: var(--md-sys-color-on-primary-container);
+            border-radius: 30px;
+            background-color: var(--woods-moss);
+            color: var(--woods-paper);
             font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            letter-spacing: 0.5px;
+            gap: 10px;
+            box-shadow: 0 4px 0px #354238;
         }
-        .m3-btn-tonal:hover { background-color: var(--theme-dark-tan); }
+        .lofi-btn-primary:hover { transform: translateY(2px); box-shadow: 0 2px 0px #354238; }
 
-        .m3-btn-outlined {
-            height: 48px;
+        .lofi-btn-secondary {
+            height: 52px;
             padding: 0 32px;
-            border-radius: 24px;
-            border: 1.5px solid var(--theme-muted-green);
-            color: var(--theme-dark-green);
+            border-radius: 30px;
+            border: 2px solid var(--woods-moss);
+            color: var(--woods-moss);
             font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
             transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
-        .m3-btn-outlined:hover { border-color: var(--theme-dark-green); background-color: rgba(36, 46, 36, 0.03); }
+        .lofi-btn-secondary:hover { background: rgba(74, 93, 78, 0.05); }
 
-        .m3-card {
-            background-color: var(--theme-pure-white);
-            border-radius: 20px;
+        .lofi-card {
+            background-color: var(--woods-paper);
+            border-radius: 24px;
             padding: 24px;
-            border: 1px solid var(--theme-muted-green);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            border: 1px solid rgba(74, 93, 78, 0.15);
+            box-shadow: 0 8px 24px var(--woods-shadow);
         }
 
-        .m3-input {
-            background-color: var(--theme-pure-white);
-            border-bottom: 2px solid var(--theme-muted-green);
-            border-radius: 8px 8px 0 0;
-            padding: 18px;
-            color: var(--theme-dark-green);
+        .lofi-input {
+            background-color: rgba(255, 255, 255, 0.5);
+            border: 2px solid var(--woods-leaf);
+            border-radius: 18px;
+            padding: 14px 20px;
+            color: var(--woods-bark);
             width: 100%;
-            text-align: center;
             transition: all 0.2s;
-            font-size: 1.2rem;
-            font-weight: 500;
         }
 
-        .m3-input:focus {
+        .lofi-input:focus {
             outline: none;
-            border-bottom: 2px solid var(--theme-dark-green);
-            background-color: #FDFDFD;
+            border-color: var(--woods-moss);
+            background-color: var(--woods-paper);
         }
 
-        .peer-card.speaking {
-            border-color: var(--theme-dark-green);
-            box-shadow: 0 0 25px rgba(36, 46, 36, 0.08);
+        .wisp-card.speaking {
+            background-color: #F0F4ED;
+            border-color: var(--woods-leaf);
             transform: scale(1.02);
         }
 
-        .toast { animation: slideIn 0.3s cubic-bezier(0.05, 0.7, 0.1, 1) forwards; }
-        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .leaf-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 14px;
+            border-radius: 20px;
+            background: var(--woods-leaf);
+            color: white;
+        }
+
+        /* Ambient Background */
+        .wood-texture {
+            background-image: url("https://www.transparenttextures.com/patterns/p6.png");
+            opacity: 0.3;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col overflow-hidden">
+    <div class="fixed inset-0 pointer-events-none wood-texture"></div>
 
-    <header class="h-16 px-6 flex items-center justify-between border-b border-[--theme-muted-green] bg-[--theme-pure-white] z-50">
+    <header class="h-20 px-10 flex items-center justify-between border-b border-[rgba(74,93,78,0.1)] bg-[--woods-paper] z-50">
         <div class="flex items-center gap-4">
-            <div id="status-indicator" class="w-3 h-3 rounded-full bg-black/10 transition-colors duration-500"></div>
-            <h1 class="text-lg font-black text-[--theme-dark-green] tracking-widest uppercase">NODE TRANSMIT</h1>
+            <div id="status-indicator" class="w-3 h-3 rounded-full bg-orange-200 border-2 border-orange-300"></div>
+            <h1 class="text-xl font-bold text-[--woods-moss]">Forest Whispers</h1>
         </div>
-        <div id="room-display" class="hidden flex items-center gap-4">
-            <div class="flex flex-col items-end">
-                <div id="current-room-label" class="text-[9px] font-black text-[--theme-light-grey] uppercase tracking-[0.2em] mb-1">MAIN_CHANNEL</div>
-                <button onclick="copyRoomId()" class="text-[10px] font-mono text-[--theme-dark-green] hover:brightness-75 transition-all flex items-center gap-2 bg-[--theme-deep-green] px-4 py-1.5 rounded-full border border-[--theme-muted-green]">
-                    <span id="room-id-text">------</span>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+        <div id="room-display" class="hidden flex items-center gap-6">
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-semibold text-[--woods-bark] opacity-60 italic">Your clearing:</span>
+                <button onclick="copyRoomId()" class="text-sm font-bold text-[--woods-moss] bg-[--woods-fog] px-5 py-2 rounded-full border border-[--woods-leaf] hover:bg-white transition-all flex items-center gap-2">
+                    <span id="room-id-text">Gathering fire...</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                 </button>
             </div>
         </div>
@@ -154,106 +124,109 @@
 
     <main id="app-container" class="flex-1 flex flex-col relative overflow-hidden">
         
-        <!-- Setup View: Natural White Overlay -->
-        <div id="setup-view" class="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-y-auto bg-[--theme-white] p-8 text-center">
-            <div class="w-full max-w-lg space-y-12">
+        <!-- Setup View: Lofi Woods Intro -->
+        <div id="setup-view" class="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-y-auto p-8">
+            <div class="w-full max-w-xl space-y-12">
                 
-                <div class="flex flex-col items-center">
-                    <div class="w-20 h-20 bg-[--theme-pure-white] rounded-[2rem] flex items-center justify-center mb-8 border border-[--theme-muted-green] shadow-sm">
-                         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--theme-dark-green)" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+                <div class="text-center space-y-4">
+                    <div class="inline-flex items-center justify-center w-20 h-20 bg-[--woods-paper] rounded-full border-4 border-[--woods-leaf] shadow-inner mb-2">
+                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4A5D4E" stroke-width="2"><path d="M12 2L2 22h20L12 2z"></path><path d="M12 18l-3-3 1.5-1.5L12 15l1.5-1.5L15 15l-3 3z"></path></svg>
                     </div>
-                    <h2 class="text-3xl font-black text-[--theme-dark-green] mb-3 tracking-[0.2em] uppercase">Initialize Signal</h2>
-                    <p class="text-[--theme-light-grey] text-xs font-medium opacity-60 uppercase tracking-widest">Natural P2P Communication Protocol</p>
+                    <h2 class="text-4xl font-bold text-[--woods-bark]">Enter the Grove</h2>
+                    <p class="text-[--woods-bark] opacity-70 font-medium italic">Adjust your spirit and find your voice before joining the circle.</p>
                 </div>
 
-                <div id="join-buttons-container" class="space-y-4 w-full px-12">
-                    <button onclick="handleHost()" class="w-full m3-btn-filled">Open Frequency</button>
-                    <button onclick="showJoinInput()" class="w-full m3-btn-outlined">Secure Connect</button>
-                    <button id="close-settings-btn" onclick="toggleSetupModalFromLobby()" class="hidden w-full m3-btn-tonal mt-4">Return to Channel</button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full px-6">
+                    <button onclick="handleHost()" class="lofi-btn-primary">Start a Circle</button>
+                    <button onclick="showJoinInput()" class="lofi-btn-secondary">Find a Grove</button>
                 </div>
 
-                <div class="space-y-4 w-full px-12">
-                    <label class="text-[10px] font-black text-[--theme-dark-green] uppercase tracking-[0.4em]">Signal Identity</label>
-                    <input id="setup-username-input" type="text" placeholder="Designate ID..." class="m3-input">
-                </div>
-
-                <div class="space-y-4 w-full px-12 flex flex-col items-center">
-                    <label class="text-[10px] font-black text-[--theme-dark-green] uppercase tracking-[0.4em]">Broadcast Mode</label>
-                    <div class="flex gap-3 w-full">
-                        <button onclick="savePreference('inputMode', 'open')" id="setup-mode-open" class="flex-1 m3-btn-tonal">Unrestricted</button>
-                        <button onclick="savePreference('inputMode', 'ptt')" id="setup-mode-ptt" class="flex-1 m3-btn-tonal">Gated (PTT)</button>
+                <div class="space-y-8 w-full px-6 py-10 bg-[--woods-paper] rounded-[32px] border border-[rgba(74,93,78,0.1)]">
+                    <div class="flex flex-col gap-3">
+                        <label class="text-xs font-bold text-[--woods-moss] uppercase tracking-widest pl-2">Forest Name</label>
+                        <input id="setup-username-input" type="text" placeholder="e.g. Oak Spirit" class="lofi-input text-lg">
                     </div>
-                    <div id="setup-ptt-config" class="hidden w-full flex justify-between items-center p-5 bg-[--theme-pure-white] rounded-2xl border border-[--theme-muted-green]">
-                        <span class="text-[10px] font-bold text-[--theme-light-grey] uppercase tracking-widest">Trigger</span>
-                        <button onclick="rebindKey(event, true)" id="setup-current-key" class="text-xs font-mono bg-[--theme-dark-green] text-[--theme-white] px-4 py-2 rounded-full font-black uppercase shadow-sm">Space</button>
-                    </div>
-                </div>
 
-                <div class="space-y-8 w-full px-12 flex flex-col items-center pb-16">
-                    <label class="text-[10px] font-black text-[--theme-dark-green] uppercase tracking-[0.4em]">Amplitude Check</label>
-                    <div class="w-full bg-[--theme-pure-white] p-8 rounded-[2.5rem] border border-[--theme-muted-green] space-y-6">
-                        <div class="flex justify-between items-center px-2">
-                            <span class="text-[10px] font-bold text-[--theme-light-grey] opacity-80 uppercase tracking-widest">Input Flux</span>
-                            <span id="setup-mic-status" class="text-[9px] uppercase font-black text-[--theme-muted-green]">Dormant</span>
-                        </div>
-                        <div class="h-3 bg-[--theme-deep-green] rounded-full overflow-hidden border border-black/5">
-                            <div id="setup-mic-level" class="h-full bg-[--theme-dark-green] w-0 transition-all duration-75"></div>
-                        </div>
+                    <div class="flex flex-col gap-3">
+                        <label class="text-xs font-bold text-[--woods-moss] uppercase tracking-widest pl-2">How you speak</label>
                         <div class="flex gap-4">
-                            <button onclick="requestInitialMedia()" id="mic-test-btn" class="flex-1 m3-btn-tonal h-12 text-[10px] font-black">Sync Mic</button>
-                            <div class="flex items-center gap-4 px-4 bg-[--theme-deep-green] rounded-full border border-black/5">
-                                <span class="text-[9px] font-black text-[--theme-light-grey] opacity-60 uppercase tracking-widest">Filter</span>
-                                <input type="checkbox" id="setup-noise-toggle" class="w-10 h-5 appearance-none bg-[--theme-muted-green] rounded-full checked:bg-[--theme-dark-green] transition-all relative cursor-pointer after:content-[''] after:absolute after:top-1 after:left-1 after:w-3 after:h-3 after:bg-white after:rounded-full after:transition-all checked:after:translate-x-5" onchange="savePreference('noiseSuppression', this.checked)">
+                            <button onclick="savePreference('inputMode', 'open')" id="setup-mode-open" class="flex-1 py-4 rounded-2xl border-2 font-bold transition-all">Natural Flow</button>
+                            <button onclick="savePreference('inputMode', 'ptt')" id="setup-mode-ptt" class="flex-1 py-4 rounded-2xl border-2 font-bold transition-all">Step into Circle</button>
+                        </div>
+                    </div>
+
+                    <div id="setup-ptt-config" class="hidden flex justify-between items-center p-5 bg-[--woods-fog] rounded-2xl">
+                        <span class="text-sm font-bold opacity-70 italic">Speaking Key:</span>
+                        <button onclick="rebindKey(event)" id="setup-current-key" class="bg-white border-2 border-[--woods-leaf] px-6 py-2 rounded-full font-bold shadow-sm">Space</button>
+                    </div>
+
+                    <div class="space-y-4 pt-4 border-t border-gray-100">
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs font-bold text-[--woods-moss] uppercase tracking-widest pl-2">Spirit Level</label>
+                            <span id="setup-mic-status" class="text-[10px] font-extrabold uppercase bg-gray-100 px-3 py-1 rounded-full text-gray-400">Resting</span>
+                        </div>
+                        <div class="h-3 bg-[--woods-fog] rounded-full overflow-hidden p-1 shadow-inner">
+                            <div id="setup-mic-level" class="h-full bg-[--woods-leaf] rounded-full w-0 transition-all duration-75"></div>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <button onclick="requestInitialMedia()" class="text-xs font-bold text-[--woods-moss] underline decoration-[--woods-leaf] decoration-2 underline-offset-4">Test Microphone</button>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold opacity-60 uppercase">Distant Rain Filter</span>
+                                <input type="checkbox" id="setup-noise-toggle" class="w-10 h-5 appearance-none bg-gray-200 rounded-full checked:bg-[--woods-moss] transition-all relative cursor-pointer" onchange="savePreference('noiseSuppression', this.checked)">
                             </div>
                         </div>
                     </div>
                 </div>
+                <div class="text-center pt-2">
+                    <button id="close-settings-btn" onclick="toggleSetupModalFromLobby()" class="hidden text-xs font-bold text-[--woods-bark] opacity-50 hover:opacity-100 uppercase tracking-widest">Back to Gathering</button>
+                </div>
             </div>
         </div>
 
-        <!-- Join Input View -->
-        <div id="join-view" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-8 bg-[--theme-white] text-center">
-            <div class="w-full max-w-sm space-y-12">
+        <!-- Join Input: Soft Modal -->
+        <div id="join-view" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-8 bg-[--woods-fog]">
+            <div class="w-full max-w-md space-y-10 text-center">
                 <div class="space-y-4">
-                    <h3 class="text-3xl font-black text-[--theme-dark-green] tracking-widest">ENTRY CODE</h3>
-                    <p class="text-[--theme-light-grey] opacity-60 text-[10px] font-bold uppercase tracking-widest">Connect to specific node frequency</p>
+                    <h3 class="text-3xl font-bold">Follow the Path</h3>
+                    <p class="text-[--woods-bark] opacity-60 italic">Enter the 6-letter spirit code to find your friends.</p>
                 </div>
-                <input id="join-room-id" type="text" placeholder="000000" class="w-full bg-transparent border-b-4 border-[--theme-dark-green] p-8 text-center text-5xl font-mono font-black tracking-[0.5em] text-[--theme-dark-green] uppercase focus:outline-none placeholder:opacity-10">
+                <input id="join-room-id" type="text" placeholder="G_R_O_V_E" class="w-full bg-transparent border-b-2 border-[--woods-moss] p-4 text-center text-5xl font-bold uppercase focus:outline-none placeholder:opacity-10">
                 <div class="flex flex-col gap-4">
-                    <button onclick="handleJoin()" class="w-full m3-btn-filled">Sync Now</button>
-                    <button onclick="showSetup()" class="w-full m3-btn-tonal bg-transparent text-[--theme-light-grey]">Back</button>
+                    <button onclick="handleJoin()" class="lofi-btn-primary w-full">Join the Circle</button>
+                    <button onclick="showSetup()" class="text-sm font-bold text-[--woods-bark] opacity-40 uppercase">Turn Back</button>
                 </div>
             </div>
         </div>
 
-        <!-- Lobby View -->
-        <div id="lobby-view" class="hidden w-full h-full flex overflow-hidden">
-            <aside class="w-72 bg-[--theme-deep-green] border-r border-[--theme-muted-green] flex flex-col hidden lg:flex">
-                <div class="p-8 flex items-center justify-between">
-                    <div class="space-y-1">
-                        <h3 class="text-[10px] font-black text-[--theme-dark-green] uppercase tracking-[0.3em]">Channels</h3>
-                        <p class="text-[8px] font-bold text-[--theme-light-grey] opacity-50 uppercase tracking-widest">Node Map</p>
-                    </div>
-                    <button onclick="toggleRoomModal()" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-[--theme-pure-white] border border-[--theme-muted-green] text-[--theme-dark-green] hover:scale-105 transition-all shadow-sm">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <!-- Lobby View: The Forest Topology -->
+        <div id="lobby-view" class="hidden w-full h-full flex">
+            <aside class="w-80 bg-[--woods-paper] border-r border-[rgba(74,93,78,0.1)] flex flex-col hidden lg:flex shadow-xl z-20">
+                <div class="p-10 border-b border-gray-100">
+                    <h3 class="text-xs font-bold text-[--woods-moss] uppercase tracking-[0.2em] mb-6">Forest Clearings</h3>
+                    <button onclick="toggleRoomModal()" class="w-full py-4 bg-[--woods-fog] border-2 border-dashed border-[--woods-leaf] rounded-2xl text-[10px] font-bold uppercase tracking-widest text-[--woods-moss] hover:bg-white transition-all">
+                        + Discover New Path
                     </button>
                 </div>
-                <div id="subroom-list" class="flex-1 overflow-y-auto px-4 space-y-3"></div>
-                <div class="p-5 bg-[--theme-pure-white] m-5 rounded-[2rem] flex items-center gap-5 border border-[--theme-muted-green] shadow-sm">
-                    <div class="w-12 h-12 rounded-2xl bg-[--theme-dark-green] text-[--theme-white] flex items-center justify-center font-black text-xl" id="local-avatar-char">?</div>
-                    <div class="flex-1 overflow-hidden">
-                        <div class="text-[11px] font-black tracking-widest truncate text-[--theme-dark-green] uppercase" id="local-name-display">Username</div>
-                        <div class="text-[8px] text-[--theme-light-grey] font-black uppercase tracking-[0.2em] mt-1">Broadcast Active</div>
+                <div id="subroom-list" class="flex-1 overflow-y-auto p-6 space-y-3"></div>
+                
+                <div class="p-5 bg-[--woods-fog] m-6 rounded-3xl border border-[--woods-leaf] flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-[--woods-moss] text-white flex items-center justify-center font-bold text-xl shadow-md" id="local-avatar-char">?</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-bold truncate text-[--woods-bark] capitalize" id="local-name-display">Wanderer</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-[--woods-leaf] animate-pulse"></span>
+                            <span class="text-[10px] font-bold text-[--woods-bark] opacity-50 uppercase">Among the trees</span>
+                        </div>
                     </div>
                 </div>
             </aside>
 
-            <div class="flex-1 flex flex-col bg-[--theme-white]">
+            <div class="flex-1 flex flex-col">
                 <div class="flex-1 overflow-y-auto p-12">
-                    <div class="max-w-5xl mx-auto">
-                        <div class="flex items-center gap-6 mb-12">
-                            <span id="peer-count-badge" class="bg-[--theme-dark-green] text-[--theme-white] px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em]">Local Node Active</span>
-                            <div class="h-px flex-1 bg-[--theme-muted-green] opacity-30"></div>
+                    <div class="max-w-6xl mx-auto">
+                        <div class="flex items-center justify-between mb-12 pb-4 border-b border-[rgba(74,93,78,0.1)]">
+                            <h2 class="text-xl font-bold text-[--woods-moss]" id="current-room-label">Primary Channel</h2>
+                            <span id="peer-count-badge" class="leaf-badge shadow-sm">0 WISPS GATHERED</span>
                         </div>
                         <div id="peer-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"></div>
                     </div>
@@ -262,52 +235,60 @@
         </div>
     </main>
 
-    <footer id="control-bar" class="hidden h-24 bg-[--theme-pure-white] border-t border-[--theme-muted-green] z-30 px-10">
-        <div class="max-w-6xl mx-auto h-full flex items-center justify-between">
-            <div class="flex-1 hidden md:flex items-center gap-10">
-                <div class="w-48 space-y-3">
-                    <div class="h-1.5 bg-[--theme-deep-green] rounded-full overflow-hidden border border-black/5">
-                        <div id="local-mic-level" class="h-full bg-[--theme-dark-green] w-0 transition-all duration-75"></div>
+    <!-- Controls: Soft Wood Bar -->
+    <footer id="control-bar" class="hidden h-28 bg-[--woods-paper] border-t border-[rgba(74,93,78,0.1)] z-30 px-12">
+        <div class="max-w-7xl mx-auto h-full flex items-center justify-between">
+            <div class="flex-1 hidden md:flex items-center">
+                <div class="w-64 space-y-3">
+                    <div class="flex justify-between items-center text-[10px] font-bold text-[--woods-bark] opacity-50 uppercase tracking-widest">
+                        <span>Wisps of Voice</span>
+                        <span id="db-level">0</span>
                     </div>
-                    <div class="text-[8px] uppercase tracking-[0.3em] text-[--theme-light-grey] opacity-60 font-black">Transmission Level</div>
+                    <div class="h-2 bg-[--woods-fog] rounded-full overflow-hidden shadow-inner p-0.5">
+                        <div id="local-mic-level" class="h-full bg-[--woods-moss] rounded-full w-0 transition-all duration-100"></div>
+                    </div>
                 </div>
             </div>
+            
             <div class="flex items-center gap-6">
-                <button id="mute-btn" onclick="toggleMute()" class="w-16 h-16 rounded-[1.5rem] bg-[--theme-deep-green] border border-[--theme-muted-green] flex items-center justify-center text-[--theme-dark-green] hover:bg-[--theme-muted-green] transition-all group">
-                    <svg id="mic-icon" class="group-hover:scale-110 transition-transform" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                <button id="mute-btn" onclick="toggleMute()" class="w-16 h-16 rounded-full bg-[--woods-fog] border-2 border-[--woods-leaf] flex items-center justify-center text-[--woods-moss] hover:bg-white transition-all shadow-sm">
+                    <svg id="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
                 </button>
-                <button onclick="toggleSetupModalFromLobby()" class="w-16 h-16 rounded-[1.5rem] bg-[--theme-deep-green] border border-[--theme-muted-green] flex items-center justify-center text-[--theme-dark-green] hover:bg-[--theme-muted-green] transition-all group">
-                    <svg width="24" height="24" viewBox="0 0 24 24" class="group-hover:rotate-45 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <button onclick="toggleSetupModalFromLobby()" class="w-16 h-16 rounded-full bg-[--woods-fog] border-2 border-[--woods-leaf] flex items-center justify-center text-[--woods-moss] hover:bg-white transition-all shadow-sm">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 </button>
-                <div class="w-px h-10 bg-[--theme-muted-green] mx-4 opacity-50"></div>
-                <button onclick="location.reload()" class="w-16 h-16 rounded-[1.5rem] bg-red-50 text-red-600 border border-red-200 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline></svg>
-                </button>
+                <div class="w-px h-10 bg-[--woods-leaf] opacity-30 mx-2"></div>
+                <button onclick="location.reload()" class="w-16 h-16 rounded-full bg-orange-50 text-orange-700 border-2 border-orange-100 flex items-center justify-center font-bold text-xs hover:bg-orange-600 hover:text-white transition-all shadow-sm">LEAVE</button>
             </div>
-            <div class="flex-1 hidden md:flex justify-end items-center">
-                <span id="latency-display" class="text-[8px] font-black text-[--theme-dark-green] bg-[--theme-deep-green] border border-[--theme-muted-green] px-5 py-2.5 rounded-full tracking-[0.3em] uppercase shadow-sm">Signal: Nominal</span>
+
+            <div class="flex-1 hidden md:flex justify-end items-center italic text-xs font-semibold text-[--woods-moss] opacity-60">
+                Encrypted like a secret grove.
             </div>
         </div>
     </footer>
 
-    <div id="room-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
-        <div class="bg-[--theme-pure-white] rounded-[2.5rem] w-full max-w-sm p-12 space-y-10 border border-[--theme-muted-green] shadow-3xl">
-            <h3 class="text-xl font-black text-[--theme-dark-green] text-center tracking-[0.3em] uppercase">Add Node</h3>
-            <input id="subroom-name-input" type="text" placeholder="ID Label..." class="m3-input">
+    <!-- Modals -->
+    <div id="room-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[--woods-bark]/40 backdrop-blur-md">
+        <div class="bg-[--woods-paper] rounded-[40px] w-full max-w-sm p-10 space-y-8 border-4 border-white shadow-2xl">
+            <div class="text-center space-y-3">
+                <h3 class="text-2xl font-bold">New Clearing</h3>
+                <p class="text-xs font-medium opacity-60 italic">Name the part of the woods you wish to discover.</p>
+            </div>
+            <input id="subroom-name-input" type="text" placeholder="e.g. The River" class="lofi-input italic">
             <div class="flex flex-col gap-4">
-                <button onclick="confirmCreateSubRoom()" class="m3-btn-filled w-full">Apply Frequency</button>
-                <button onclick="toggleRoomModal()" class="m3-btn-tonal w-full bg-transparent text-[--theme-light-grey]">Cancel</button>
+                <button onclick="confirmCreateSubRoom()" class="lofi-btn-primary w-full">Plant the Sign</button>
+                <button onclick="toggleRoomModal()" class="text-xs font-bold opacity-40 uppercase">Forget it</button>
             </div>
         </div>
     </div>
 
-    <div id="toast-container" class="fixed bottom-32 right-10 z-[100] flex flex-col gap-4 pointer-events-none"></div>
+    <div id="toast-container" class="fixed bottom-36 right-10 z-[100] flex flex-col gap-3 pointer-events-none"></div>
 
     <script>
-        const PREFS_KEY = 'p2p_voice_natural_white_v1';
+        const PREFS_KEY = 'p2p_voice_lofi_woods';
         let prefs = { username: '', inputMode: 'open', pttKey: 'Space', noiseSuppression: true };
         let peer = null, localStream = null, isMuted = false, inputMode = 'open', pttKey = 'Space', isPttPressed = false;
-        let remotePeers = {}, currentSubRoom = 'main', subRooms = { 'main': 'Lobby_Alpha' }, openDoors = new Set(), connections = {}, isInRoom = false;
+        let remotePeers = {}, currentSubRoom = 'main', subRooms = { 'main': 'Primary Clearing' }, openDoors = new Set(), connections = {}, isInRoom = false;
 
         function loadPreferences() {
             const saved = localStorage.getItem(PREFS_KEY);
@@ -328,10 +309,13 @@
             const isPtt = prefs.inputMode === 'ptt';
             const openBtn = document.getElementById('setup-mode-open');
             const pttBtn = document.getElementById('setup-mode-ptt');
-            openBtn.classList.toggle('bg-[--theme-dark-green]', !isPtt);
-            openBtn.classList.toggle('text-[--theme-white]', !isPtt);
-            pttBtn.classList.toggle('bg-[--theme-dark-green]', isPtt);
-            pttBtn.classList.toggle('text-[--theme-white]', isPtt);
+            
+            const activeClass = 'bg-[--woods-moss] text-white border-[--woods-moss] shadow-md';
+            const inactiveClass = 'bg-white text-[--woods-bark] border-[--woods-fog] opacity-60 hover:opacity-100';
+
+            openBtn.className = `flex-1 py-4 rounded-2xl border-2 font-bold transition-all ${!isPtt ? activeClass : inactiveClass}`;
+            pttBtn.className = `flex-1 py-4 rounded-2xl border-2 font-bold transition-all ${isPtt ? activeClass : inactiveClass}`;
+
             document.getElementById('setup-ptt-config').classList.toggle('hidden', !isPtt);
             document.getElementById('setup-current-key').innerText = prefs.pttKey;
             inputMode = prefs.inputMode;
@@ -343,29 +327,28 @@
             try {
                 if (localStream) localStream.getTracks().forEach(t => t.stop());
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: prefs.noiseSuppression, autoGainControl: true } });
-                document.getElementById('setup-mic-status').innerText = 'ACTIVE';
-                document.getElementById('setup-mic-status').classList.replace('text-[--theme-muted-green]', 'text-[--theme-dark-green]');
+                document.getElementById('setup-mic-status').innerText = 'READY';
+                document.getElementById('setup-mic-status').className = 'text-[10px] font-extrabold uppercase bg-green-100 px-3 py-1 rounded-full text-green-700';
                 setupVolumeAnalysis(localStream, 'setup-mic-level');
                 return localStream;
-            } catch (e) { showToast("Signal Denied", "error"); return null; }
+            } catch (e) { showToast("Couldn't hear you. Check settings?", "error"); return null; }
         }
 
         function showJoinInput() { document.getElementById('setup-view').classList.add('hidden'); document.getElementById('join-view').classList.remove('hidden'); }
         function showSetup() { document.getElementById('join-view').classList.add('hidden'); document.getElementById('setup-view').classList.remove('hidden'); }
 
         function enterLobby() {
-            prefs.username = document.getElementById('setup-username-input').value || 'NODE_' + Math.floor(Math.random()*999);
+            prefs.username = document.getElementById('setup-username-input').value || 'Spirit_' + Math.floor(Math.random()*999);
             savePreference('username', prefs.username);
             document.getElementById('setup-view').classList.add('hidden');
             document.getElementById('join-view').classList.add('hidden');
             document.getElementById('lobby-view').classList.remove('hidden');
             document.getElementById('control-bar').classList.remove('hidden');
             document.getElementById('room-display').classList.remove('hidden');
-            document.getElementById('status-indicator').classList.add('bg-[--theme-dark-green]');
+            document.getElementById('status-indicator').classList.replace('bg-orange-200', 'bg-green-400');
             document.getElementById('local-avatar-char').innerText = prefs.username[0].toUpperCase();
             document.getElementById('local-name-display').innerText = prefs.username;
             document.getElementById('close-settings-btn').classList.remove('hidden');
-            document.getElementById('join-buttons-container').innerHTML = `<button onclick="toggleSetupModalFromLobby()" class="w-full m3-btn-outlined border-[--theme-dark-green] text-[--theme-dark-green] text-[10px] font-black tracking-widest">Reconfigure Uplink</button>`;
             isInRoom = true; renderSubRooms();
         }
 
@@ -406,7 +389,7 @@
             if (!localStream) await requestInitialMedia();
             const id = Math.random().toString(36).substring(2, 8).toUpperCase();
             initPeer(id);
-            createPeerCard('local', document.getElementById('setup-username-input').value || 'ADMIN', true);
+            createPeerCard('local', document.getElementById('setup-username-input').value || 'Wanderer', true);
             setupVolumeAnalysis(localStream, 'local');
             enterLobby();
         }
@@ -421,7 +404,7 @@
                 setupConnection(conn);
                 const call = peer.call(target, localStream);
                 call.on('stream', (stream) => handleRemoteStream(target, stream, call));
-                createPeerCard('local', document.getElementById('setup-username-input').value || 'VISITOR', true);
+                createPeerCard('local', document.getElementById('setup-username-input').value || 'Visitor', true);
                 setupVolumeAnalysis(localStream, 'local');
                 enterLobby();
                 document.getElementById('room-id-text').innerText = target;
@@ -431,7 +414,7 @@
         function handleRemoteStream(id, stream, call) {
             if (!remotePeers[id]) {
                 const audio = new Audio(); audio.srcObject = stream; audio.play();
-                const card = createPeerCard(id, `SIGNAL_${id.substring(0,3)}`);
+                const card = createPeerCard(id, `Spirit_${id.substring(0,4)}`);
                 remotePeers[id] = { stream, element: card, call, currentSubRoom: 'main', audio, username: 'Peer' };
                 setupVolumeAnalysis(stream, id);
                 updatePeerVisibility(id);
@@ -445,18 +428,18 @@
             Object.keys(subRooms).forEach(id => {
                 const isActive = currentSubRoom === id;
                 const container = document.createElement('div');
-                container.className = `flex items-center px-6 py-4 rounded-2xl cursor-pointer transition-all ${isActive ? 'bg-[--theme-dark-green] text-[--theme-white] shadow-md' : 'hover:bg-black/5 text-[--theme-light-grey]'}`;
+                container.className = `flex items-center px-5 py-4 rounded-2xl cursor-pointer transition-all border-2 ${isActive ? 'bg-[--woods-moss] text-white border-[--woods-moss] shadow-md' : 'hover:bg-white text-[--woods-bark] border-transparent opacity-70'}`;
                 const label = document.createElement('div');
-                label.className = `flex-1 text-[10px] font-black uppercase tracking-widest flex items-center gap-4`;
+                label.className = `flex-1 text-sm font-bold flex items-center gap-3`;
                 label.onclick = () => switchSubRoom(id);
-                label.innerHTML = `<span class="${isActive ? 'opacity-30' : 'text-[--theme-dark-green]'} font-mono text-xs">#</span> ${subRooms[id]}`;
+                label.innerHTML = `<span class="${isActive ? 'text-[--woods-leaf]' : 'text-gray-300'} text-lg">✿</span> ${subRooms[id]}`;
                 container.appendChild(label);
                 if (!isActive) {
                     const isDoorOpen = openDoors.has(id);
                     const doorBtn = document.createElement('button');
                     doorBtn.onclick = (e) => { e.stopPropagation(); toggleDoor(id); };
-                    doorBtn.className = `w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/10 ${isDoorOpen ? 'text-[--theme-dark-green]' : 'text-[--theme-muted-green]'}`;
-                    doorBtn.innerHTML = isDoorOpen ? '⚡' : '🚪';
+                    doorBtn.className = `w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-sm`;
+                    doorBtn.innerHTML = isDoorOpen ? '🍃' : '🌱';
                     container.appendChild(doorBtn);
                 }
                 list.appendChild(container);
@@ -473,7 +456,7 @@
         function switchSubRoom(id) {
             currentSubRoom = id;
             openDoors.delete(id);
-            document.getElementById('current-room-label').innerText = subRooms[id].toUpperCase();
+            document.getElementById('current-room-label').innerText = subRooms[id];
             renderSubRooms();
             Object.values(connections).forEach(c => c.send({ type: 'room_update', room: id }));
             Object.keys(remotePeers).forEach(p => updatePeerVisibility(p));
@@ -490,23 +473,26 @@
 
         function updatePeerCount() {
             const count = Object.keys(remotePeers).length + 1;
-            document.getElementById('peer-count-badge').innerText = `${count} NODE${count === 1 ? '' : 'S'} SYNCED`;
+            document.getElementById('peer-count-badge').innerText = `${count} SPIRIT${count === 1 ? '' : 'S'} GATHERED`;
         }
 
         function createPeerCard(id, name, isLocal = false) {
             const div = document.createElement('div');
             div.id = `peer-${id}`;
-            div.className = `m3-card flex flex-col gap-6 transition-all duration-300`;
+            div.className = `lofi-card flex flex-col gap-6 border-2 transition-all duration-500`;
             div.innerHTML = `
-                <div class="flex items-center gap-6">
-                    <div class="w-16 h-16 rounded-[1.5rem] bg-[--theme-dark-green] text-[--theme-white] flex items-center justify-center text-2xl font-black shadow-md">${name[0]}</div>
+                <div class="flex items-center gap-5">
+                    <div class="w-14 h-14 rounded-[20px] bg-[--woods-fog] border border-[--woods-leaf] text-[--woods-moss] flex items-center justify-center text-2xl font-bold shadow-inner">${name[0]}</div>
                     <div class="flex-1 min-w-0">
-                        <div class="font-black truncate text-[--theme-dark-green] text-sm uppercase tracking-widest">${name} ${isLocal ? '(YOU)' : ''}</div>
-                        <div class="text-[9px] text-[--theme-light-grey] uppercase tracking-[0.3em] font-black opacity-60 mt-2">Active Link</div>
+                        <div class="font-bold truncate text-[--woods-bark] text-lg capitalize">${name} ${isLocal ? '(You)' : ''}</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-blue-300"></span>
+                            <span class="text-[10px] font-bold text-[--woods-bark] opacity-40 uppercase tracking-widest">Wandering here</span>
+                        </div>
                     </div>
                 </div>
-                <div class="h-1.5 bg-[--theme-deep-green] rounded-full overflow-hidden border border-black/5">
-                    <div id="vol-${id}" class="volume-bar h-full bg-[--theme-dark-green]" style="width: 0%"></div>
+                <div class="h-2 bg-[--woods-fog] rounded-full overflow-hidden p-0.5 shadow-inner">
+                    <div id="vol-${id}" class="volume-bar h-full bg-[--woods-leaf] rounded-full transition-all duration-100" style="width: 0%"></div>
                 </div>
             `;
             document.getElementById('peer-grid').appendChild(div);
@@ -527,10 +513,13 @@
                     let avg = sum / data.length;
                     const el = document.getElementById(targetId === 'setup-mic-level' ? 'setup-mic-level' : `vol-${targetId}`);
                     if (el) el.style.width = Math.min(avg * 2.5, 100) + '%';
-                    if (targetId === 'local') document.getElementById('local-mic-level').style.width = Math.min(avg * 2.5, 100) + '%';
+                    if (targetId === 'local') {
+                        document.getElementById('local-mic-level').style.width = Math.min(avg * 2.5, 100) + '%';
+                        document.getElementById('db-level').innerText = Math.round(avg);
+                    }
                     const card = document.getElementById(`peer-${targetId}`);
                     if (card) {
-                        if (avg > 20) card.classList.add('speaking');
+                        if (avg > 25) card.classList.add('speaking');
                         else card.classList.remove('speaking');
                     }
                     requestAnimationFrame(update);
@@ -543,9 +532,12 @@
             isMuted = !isMuted;
             if (localStream && inputMode === 'open') localStream.getAudioTracks()[0].enabled = !isMuted;
             const btn = document.getElementById('mute-btn');
-            btn.classList.toggle('bg-red-50', isMuted);
-            btn.classList.toggle('border-red-200', isMuted);
-            btn.classList.toggle('text-red-600', isMuted);
+            btn.classList.toggle('bg-orange-500', isMuted);
+            btn.classList.toggle('border-orange-600', isMuted);
+            btn.classList.toggle('text-white', isMuted);
+            btn.innerHTML = isMuted ? 
+                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>' :
+                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
         }
 
         function rebindKey(event) {
@@ -570,22 +562,23 @@
         function confirmCreateSubRoom() {
             const name = document.getElementById('subroom-name-input').value;
             if (!name) return;
-            const id = 'room-' + Math.random().toString(36).substring(2, 5);
+            const id = 'room-' + Math.random().toString(36).substring(2, 6);
             subRooms[id] = name; renderSubRooms(); toggleRoomModal();
         }
 
         function copyRoomId() {
             const t = document.getElementById('room-id-text').innerText;
-            navigator.clipboard.writeText(t); showToast("LINK COPIED", 'success');
+            navigator.clipboard.writeText(t); showToast("Spirit code copied", 'success');
         }
 
         function showToast(m, t='info') {
             const c = document.getElementById('toast-container');
             const d = document.createElement('div');
-            d.className = `toast px-8 py-5 rounded-3xl bg-[--theme-pure-white] text-[--theme-dark-green] text-[9px] font-black tracking-[0.3em] shadow-2xl border border-[--theme-muted-green] flex items-center gap-5`;
-            d.innerHTML = `<div class="w-2 h-2 rounded-full ${t === 'success' ? 'bg-green-500' : 'bg-red-500'}"></div> ${m.toUpperCase()}`;
+            d.className = `px-6 py-4 rounded-2xl bg-white text-[--woods-moss] text-xs font-bold shadow-xl border-2 border-[--woods-leaf] flex items-center gap-4 transition-all duration-500 transform translate-y-full opacity-0`;
+            d.innerHTML = `<div class="w-3 h-3 rounded-full ${t === 'success' ? 'bg-green-400' : 'bg-orange-400'}"></div> ${m}`;
             c.appendChild(d);
-            setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 300); }, 3000);
+            requestAnimationFrame(() => { d.style.opacity = '1'; d.style.transform = 'translateY(0)'; });
+            setTimeout(() => { d.style.opacity = '0'; d.style.transform = 'translateY(10px)'; setTimeout(() => d.remove(), 500); }, 3000);
         }
 
         window.onload = loadPreferences;
