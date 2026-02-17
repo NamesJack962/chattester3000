@@ -1,428 +1,463 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mesh P2P | Persistent Handshake</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #050505; color: #cbd5e1; touch-action: manipulation; }
-        .h-screen-safe { height: 100dvh; }
-        #sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .voice-active { box-shadow: 0 0 20px rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3) !important; }
-        input { font-size: 16px !important; }
-        .pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        .bg-mesh { background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.02) 1px, transparent 0); background-size: 24px 24px; }
-        
-        #sync-timer-bar { transition: width 1s linear; }
-    </style>
-</head>
-<body class="h-screen-safe overflow-hidden flex flex-col bg-mesh">
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  Mic, MicOff, Settings, PhoneOff, User, 
+  Copy, Check, Volume2, Keyboard, Play 
+} from 'lucide-react';
+import Peer from 'peerjs';
 
-    <!-- Header -->
-    <header class="h-14 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-md flex items-center justify-between px-4 z-40 shrink-0">
-        <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="p-2 md:hidden text-slate-400 active:bg-white/5 rounded-lg"><i data-lucide="menu" class="w-5 h-5"></i></button>
-            <div class="p-1.5 bg-indigo-600 rounded-lg hidden sm:block shadow-lg shadow-indigo-500/20"><i data-lucide="zap" class="text-white w-4 h-4"></i></div>
-            <h1 class="font-bold text-white tracking-tighter text-sm uppercase">Mesh</h1>
-        </div>
-        
-        <div id="room-badge" class="hidden flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-full border border-indigo-500/20">
-            <div class="w-1.5 h-1.5 rounded-full bg-indigo-400 pulse"></div>
-            <span id="active-room-key" class="text-[9px] font-black uppercase text-indigo-400 tracking-widest">Room</span>
-        </div>
+// --- Components ---
 
-        <button onclick="openModal('profile')" class="p-2 text-slate-500 hover:text-white"><i data-lucide="settings" class="w-5 h-5"></i></button>
-    </header>
+const VolumeMeter = ({ stream, isMuted }) => {
+  const [volume, setVolume] = useState(0);
+  const audioCtx = useRef(null);
+  const analyser = useRef(null);
+  const animationRef = useRef(null);
 
-    <div class="flex-1 flex overflow-hidden relative">
-        <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-30 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
-        
-        <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 bg-[#0a0a0a] border-r border-white/5 flex flex-col z-40 -translate-x-full md:translate-x-0 md:static">
-            <div class="p-4">
-                <div id="voice-panel" class="bg-white/5 border border-white/5 rounded-2xl p-4 transition-all duration-300">
-                    <div class="flex items-center justify-between mb-4">
-                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Node Audio</span>
-                        <button id="mic-btn" onclick="toggleMic()" class="p-2.5 rounded-xl bg-slate-800 text-slate-500 hover:bg-slate-700 transition-all"><i data-lucide="mic-off" class="w-4 h-4"></i></button>
-                    </div>
-                    <div id="voice-status" class="text-center"><p class="text-[9px] text-slate-600 italic">Mic Standby</p></div>
-                </div>
-            </div>
+  useEffect(() => {
+    if (!stream || isMuted) {
+      setVolume(0);
+      return;
+    }
 
-            <div class="flex-1 overflow-y-auto px-4">
-                <div class="px-2 mb-2 flex items-center justify-between text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">
-                    <span>Branches</span>
-                    <button onclick="createNewBranch()" class="hover:text-indigo-400"><i data-lucide="plus" class="w-4 h-4"></i></button>
-                </div>
-                <div id="room-list" class="space-y-1"></div>
-            </div>
+    try {
+      audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+      analyser.current = audioCtx.current.createAnalyser();
+      const source = audioCtx.current.createMediaStreamSource(stream);
+      source.connect(analyser.current);
+      analyser.current.fftSize = 256;
 
-            <div class="p-4 border-t border-white/5 bg-[#080808] space-y-2">
-                <button onclick="openModal('join')" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
-                    <i data-lucide="link" class="w-4 h-4"></i> Sync Room Key
-                </button>
-                
-                <button id="reopen-sync-btn" onclick="reopenSync()" class="hidden w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all border border-white/5">
-                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Broadcast Sync
-                </button>
-            </div>
-        </aside>
+      const bufferLength = analyser.current.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
 
-        <main class="flex-1 flex flex-col bg-[#050505] min-w-0">
-            <div class="h-10 border-b border-white/5 flex items-center px-4 md:px-8 bg-[#070707]/50 backdrop-blur-sm">
-                <i data-lucide="hash" class="w-3 h-3 text-indigo-500 mr-2"></i>
-                <span id="header-room-name" class="text-[10px] font-bold text-white uppercase tracking-wider truncate">Main Root</span>
-            </div>
+      const updateVolume = () => {
+        analyser.current.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+        setVolume(average);
+        animationRef.current = requestAnimationFrame(updateVolume);
+      };
 
-            <div id="chat-window" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-4">
-                <div id="empty-chat-state" class="h-full flex flex-col items-center justify-center opacity-20 text-center select-none">
-                    <i data-lucide="radio-tower" class="w-12 h-12 mb-4 text-indigo-500"></i>
-                    <p class="text-xs font-black uppercase tracking-widest">No Active Bridge</p>
-                </div>
-            </div>
+      updateVolume();
+    } catch (e) {
+      console.error("Audio analysis error", e);
+    }
 
-            <footer class="p-4 bg-[#050505] border-t border-white/5">
-                <div class="max-w-4xl mx-auto flex gap-2 bg-[#0f0f0f] border border-white/10 rounded-2xl p-1 shadow-2xl">
-                    <input id="msg-input" type="text" placeholder="Broadcast message..." class="flex-1 bg-transparent border-none px-4 text-sm focus:ring-0 text-slate-100 placeholder:text-slate-600 outline-none">
-                    <button onclick="sendMessage()" class="p-3 bg-indigo-600 text-white rounded-xl active:scale-95 transition-transform"><i data-lucide="send" class="w-4 h-4"></i></button>
-                </div>
-            </footer>
-        </main>
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (audioCtx.current) audioCtx.current.close();
+    };
+  }, [stream, isMuted]);
+
+  return (
+    <div className="w-full h-1 bg-gray-800 rounded-full mt-2 overflow-hidden">
+      <div 
+        className={`h-full transition-all duration-75 ${volume > 30 ? 'bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.8)]' : 'bg-gray-600'}`}
+        style={{ width: `${Math.min(volume * 1.5, 100)}%` }}
+      />
     </div>
+  );
+};
 
-    <div id="modal-backdrop" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-lg hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <div id="modal-container" class="bg-[#0f0f0f] border-t sm:border border-white/10 rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-sm p-8 sm:p-10 relative shadow-2xl transition-transform duration-300 translate-y-full sm:translate-y-0">
-            <button onclick="closeModal()" class="absolute top-6 right-6 text-slate-500 p-2"><i data-lucide="x" class="w-6 h-6"></i></button>
-            <div id="modal-content" class="text-center space-y-6"></div>
+const RemoteAudio = ({ stream }) => {
+  const audioRef = useRef(null);
+  useEffect(() => {
+    if (audioRef.current && stream) {
+      audioRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return <audio ref={audioRef} autoPlay />;
+};
+
+export default function App() {
+  // --- State ---
+  const [view, setView] = useState('setup'); // setup, lobby
+  const [username, setUsername] = useState(localStorage.getItem('p2p_username') || '');
+  const [roomId, setRoomId] = useState('');
+  const [peerId, setPeerId] = useState('');
+  const [peers, setPeers] = useState({}); // { id: { stream, name, isMuted } }
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [localStream, setLocalStream] = useState(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [inputMode, setInputMode] = useState('open'); // open, ptt
+  const [pttKey, setPttKey] = useState('Space');
+  const [isPttActive, setIsPttActive] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+
+  // --- Refs ---
+  const peerRef = useRef(null);
+  const connectionsRef = useRef({});
+
+  // --- Initialization ---
+  useEffect(() => {
+    localStorage.setItem('p2p_username', username);
+  }, [username]);
+
+  // Handle PTT Key Events
+  useEffect(() => {
+    if (inputMode !== 'ptt') return;
+
+    const handleKeyDown = (e) => {
+      if (e.code === pttKey) {
+        setIsPttActive(true);
+        if (localStream) localStream.getAudioTracks()[0].enabled = true;
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.code === pttKey) {
+        setIsPttActive(false);
+        if (localStream) localStream.getAudioTracks()[0].enabled = false;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [inputMode, pttKey, localStream]);
+
+  const startStream = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+      
+      // If PTT, start muted
+      if (inputMode === 'ptt') {
+        stream.getAudioTracks()[0].enabled = false;
+      }
+      
+      setLocalStream(stream);
+      return stream;
+    } catch (err) {
+      console.error("Failed to get local stream", err);
+      return null;
+    }
+  };
+
+  const initPeer = (id) => {
+    const peer = new Peer(id, {
+      debug: 1
+    });
+
+    peer.on('open', (id) => {
+      setPeerId(id);
+      console.log('My peer ID is: ' + id);
+    });
+
+    // When someone calls us
+    peer.on('call', async (call) => {
+      const stream = localStream || await startStream();
+      call.answer(stream);
+      call.on('stream', (remoteStream) => {
+        addPeer(call.peer, remoteStream);
+      });
+    });
+
+    peerRef.current = peer;
+  };
+
+  const addPeer = (id, stream) => {
+    setPeers(prev => ({
+      ...prev,
+      [id]: { stream, name: `User ${id.substring(0, 4)}`, isMuted: false }
+    }));
+  };
+
+  const handleHost = async () => {
+    if (!username) return;
+    const stream = await startStream();
+    if (!stream) return;
+    
+    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setRoomId(id);
+    initPeer(id);
+    setView('lobby');
+  };
+
+  const handleJoin = async () => {
+    if (!username || !roomId) return;
+    const stream = await startStream();
+    if (!stream) return;
+
+    initPeer(); // Random ID for joiner
+    
+    // Wait for peer to open then call host
+    const connectToHost = () => {
+      const call = peerRef.current.call(roomId, stream);
+      call.on('stream', (remoteStream) => {
+        addPeer(roomId, remoteStream);
+      });
+    };
+
+    if (peerRef.current?.open) {
+      connectToHost();
+    } else {
+      peerRef.current?.on('open', connectToHost);
+    }
+
+    setView('lobby');
+  };
+
+  const toggleMute = () => {
+    if (localStream) {
+      const newState = !isMuted;
+      localStream.getAudioTracks()[0].enabled = !newState;
+      setIsMuted(newState);
+    }
+  };
+
+  const copyRoomId = () => {
+    navigator.clipboard.writeText(roomId);
+    setCopyFeedback(true);
+    setTimeout(() => setCopyFeedback(false), 2000);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0F1115] text-gray-100 flex flex-col font-sans selection:bg-indigo-500/30">
+      
+      {/* Header */}
+      <header className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#0F1115]/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+          <h1 className="font-bold tracking-tight text-lg">P2P VOICE</h1>
         </div>
-    </div>
+        {view === 'lobby' && (
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={copyRoomId}
+              className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700"
+            >
+              {copyFeedback ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+              <span className="font-mono">{roomId}</span>
+            </button>
+          </div>
+        )}
+      </header>
 
-    <script>
-        let state = {
-            username: localStorage.getItem('mesh_name') || `Node_${Math.random().toString(36).substr(2, 3)}`,
-            userId: localStorage.getItem('mesh_id') || Math.random().toString(36).substr(2, 9),
-            rooms: JSON.parse(localStorage.getItem('mesh_rooms')) || [{ id: 'root', name: 'Main Root', path: ['Main Root'], parent: null }],
-            activeRoom: 'root',
-            messages: [],
-            peers: [],
-            pc: null,
-            localStream: null,
-            isMicEnabled: false,
-            pollInterval: null,
-            currentRoomKey: null,
-            syncExpiry: 0
-        };
-
-        const sigBase = "https://kv.val.run/mesh-v3-";
-
-        function toggleSidebar() {
-            const sb = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            const isOpen = sb.classList.contains('translate-x-0');
-            sb.classList.toggle('-translate-x-full', isOpen);
-            sb.classList.toggle('translate-x-0', !isOpen);
-            overlay.style.opacity = isOpen ? '0' : '1';
-            overlay.style.pointerEvents = isOpen ? 'none' : 'auto';
-        }
-
-        function renderRooms() {
-            document.getElementById('room-list').innerHTML = state.rooms.map(room => {
-                const depth = room.path.length - 1;
-                const active = state.activeRoom === room.id;
-                return `<button onclick="switchRoom('${room.id}')" style="margin-left: ${depth * 12}px" class="w-full text-left p-3 flex items-center gap-3 rounded-xl text-xs transition-all ${active ? 'bg-indigo-500/10 text-indigo-400 font-bold' : 'text-slate-500 hover:bg-white/5'}">
-                    <i data-lucide="${room.parent ? 'chevron-right' : 'globe'}" class="w-3 h-3 ${room.parent ? 'opacity-30' : ''}"></i>
-                    <span class="truncate">${room.name}</span>
-                </button>`;
-            }).join('');
-            lucide.createIcons();
-        }
-
-        function switchRoom(id) {
-            state.activeRoom = id;
-            document.getElementById('header-room-name').innerText = state.rooms.find(r => r.id === id).name;
-            if (window.innerWidth < 768) toggleSidebar();
-            renderRooms();
-            renderMessages();
-        }
-
-        function renderMessages() {
-            const chat = document.getElementById('chat-window');
-            const filtered = state.messages.filter(m => m.roomId === state.activeRoom);
-            const empty = document.getElementById('empty-chat-state');
-            
-            if (filtered.length === 0 && state.peers.length === 0) {
-                empty.style.display = 'flex';
-                chat.querySelectorAll('.msg-item').forEach(e => e.remove());
-            } else {
-                empty.style.display = 'none';
-                chat.innerHTML = filtered.map(m => {
-                    const isMe = m.senderId === state.userId;
-                    return `<div class="msg-item flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2">
-                        <span class="text-[8px] text-slate-600 mb-1 px-1 uppercase font-bold">${isMe ? 'You' : m.senderName}</span>
-                        <div class="px-4 py-2.5 rounded-2xl text-sm max-w-[85%] ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#1a1a1a] text-slate-200 rounded-tl-none border border-white/5'}">
-                            ${m.text}
-                        </div>
-                    </div>`;
-                }).join('');
-                chat.scrollTop = chat.scrollHeight;
-            }
-            lucide.createIcons();
-        }
-
-        async function putSignal(key, data) { await fetch(sigBase + key, { method: 'POST', body: JSON.stringify(data) }).catch(()=>{}); }
-        async function getSignal(key) { 
-            const r = await fetch(sigBase + key).catch(() => null);
-            return r && r.ok ? await r.json() : null; 
-        }
-
-        function createPC() {
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-            pc.ontrack = (e) => {
-                const audio = new Audio(); audio.srcObject = e.streams[0]; audio.play();
-                updateVoiceStatus('Remote connected');
-            };
-            pc.oniceconnectionstatechange = () => {
-                if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                    state.peers = [];
-                    updateStatusUI(false);
-                }
-            };
-            return pc;
-        }
-
-        async function joinSharedRoom(roomKey) {
-            if (!roomKey || roomKey.length < 3) return alert("Key must be 3+ chars");
-            state.currentRoomKey = roomKey.trim().toLowerCase();
-            openModal('loading');
-            await tryMic();
-            
-            const hostSignal = await getSignal(state.currentRoomKey);
-            if (!hostSignal) startAsHost();
-            else startAsJoiner(hostSignal);
-        }
-
-        async function reopenSync() {
-            if (!state.currentRoomKey) return;
-            openModal('loading');
-            updateLoadingUI("Re-broadcasting...");
-            startAsHost();
-        }
-
-        async function startAsHost() {
-            const key = state.currentRoomKey;
-            state.pc = createPC();
-            const dc = state.pc.createDataChannel("mesh");
-            setupDC(dc);
-
-            if (state.localStream) state.localStream.getTracks().forEach(t => state.pc.addTrack(t, state.localStream));
-
-            state.pc.onicecandidate = async (e) => {
-                if (!e.candidate) {
-                    await putSignal(key, { sdp: state.pc.localDescription, type: 'offer', timestamp: Date.now() });
-                }
-            };
-
-            const offer = await state.pc.createOffer();
-            await state.pc.setLocalDescription(offer);
-            
-            state.syncExpiry = Date.now() + 60000;
-            renderSyncStatusUI(key);
-
-            if (state.pollInterval) clearInterval(state.pollInterval);
-            state.pollInterval = setInterval(async () => {
-                const now = Date.now();
-                if (now > state.syncExpiry) {
-                    clearInterval(state.pollInterval);
-                    updateLoadingUI("Sync timed out.");
-                    return;
-                }
-
-                const timeLeft = Math.max(0, Math.floor((state.syncExpiry - now) / 1000));
-                const bar = document.getElementById('sync-timer-bar');
-                if (bar) bar.style.width = (timeLeft / 60 * 100) + '%';
-                
-                const ans = await getSignal(key + "-ans");
-                if (ans) {
-                    clearInterval(state.pollInterval);
-                    await state.pc.setRemoteDescription(new RTCSessionDescription(ans.sdp));
-                    updateStatusUI(true);
-                    closeModal();
-                }
-            }, 1000);
-        }
-
-        async function startAsJoiner(hostSignal) {
-            const key = state.currentRoomKey;
-            state.pc = createPC();
-            state.pc.ondatachannel = (e) => setupDC(e.channel);
-
-            if (state.localStream) state.localStream.getTracks().forEach(t => state.pc.addTrack(t, state.localStream));
-
-            await state.pc.setRemoteDescription(new RTCSessionDescription(hostSignal.sdp));
-            const ans = await state.pc.createAnswer();
-            await state.pc.setLocalDescription(ans);
-
-            state.pc.onicecandidate = async (e) => {
-                if (!e.candidate) {
-                    await putSignal(key + "-ans", { sdp: state.pc.localDescription, type: 'answer' });
-                    updateStatusUI(true);
-                    closeModal();
-                }
-            };
-        }
-
-        function setupDC(dc) {
-            dc.onopen = () => {
-                state.peers.push({ dc });
-                updateStatusUI(true);
-                dc.send(JSON.stringify({ type: 'sync', rooms: state.rooms, name: state.username }));
-                renderMessages();
-            };
-            dc.onmessage = (e) => {
-                const data = JSON.parse(e.data);
-                if (data.type === 'chat') { state.messages.push(data); renderMessages(); }
-                if (data.type === 'sync' || data.type === 'new-room') {
-                    const incoming = data.type === 'sync' ? data.rooms : [data.room];
-                    const existing = new Set(state.rooms.map(r => r.id));
-                    const fresh = incoming.filter(r => !existing.has(r.id));
-                    if (fresh.length > 0) {
-                        state.rooms = [...state.rooms, ...fresh];
-                        localStorage.setItem('mesh_rooms', JSON.stringify(state.rooms));
-                        renderRooms();
-                    }
-                }
-            };
-        }
-
-        async function tryMic() {
-            try {
-                if (state.localStream) return;
-                state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                state.isMicEnabled = true;
-                updateMicUI(true);
-            } catch(e) { 
-                state.isMicEnabled = false;
-                updateMicUI(false);
-            }
-        }
-
-        function toggleMic() {
-            if (state.isMicEnabled) {
-                state.localStream?.getTracks().forEach(t => t.stop());
-                state.localStream = null;
-                state.isMicEnabled = false;
-                updateMicUI(false);
-            } else {
-                tryMic();
-            }
-        }
-
-        function updateMicUI(on) {
-            const btn = document.getElementById('mic-btn');
-            const panel = document.getElementById('voice-panel');
-            const status = document.getElementById('voice-status');
-            if (on) {
-                btn.className = 'p-2.5 rounded-xl bg-emerald-600 text-white shadow-lg active:scale-95';
-                btn.innerHTML = '<i data-lucide="mic" class="w-4 h-4"></i>';
-                panel.classList.add('voice-active');
-                status.innerHTML = `<div class="flex items-center gap-2 bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div><span class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Live</span></div>`;
-            } else {
-                btn.className = 'p-2.5 rounded-xl bg-slate-800 text-slate-500 hover:bg-slate-700';
-                btn.innerHTML = '<i data-lucide="mic-off" class="w-4 h-4"></i>';
-                panel.classList.remove('voice-active');
-                status.innerHTML = `<p class="text-[9px] text-slate-600 italic">Mic Standby</p>`;
-            }
-            lucide.createIcons();
-        }
-
-        function updateStatusUI(connected) {
-            const dot = document.getElementById('status-dot');
-            const text = document.getElementById('status-text');
-            const badge = document.getElementById('room-badge');
-            const keyEl = document.getElementById('active-room-key');
-            const reopenBtn = document.getElementById('reopen-sync-btn');
-
-            if (connected) {
-                badge.classList.remove('hidden');
-                keyEl.innerText = state.currentRoomKey;
-                reopenBtn.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-        }
-
-        function sendMessage() {
-            const input = document.getElementById('msg-input');
-            const text = input.value.trim();
-            if (!text) return;
-            const msg = { type: 'chat', senderId: state.userId, senderName: state.username, text, roomId: state.activeRoom, timestamp: Date.now() };
-            state.messages.push(msg);
-            state.peers.forEach(p => p.dc.readyState === 'open' && p.dc.send(JSON.stringify(msg)));
-            input.value = '';
-            renderMessages();
-        }
-
-        function renderSyncStatusUI(key) {
-            const content = document.getElementById('modal-content');
-            content.innerHTML = `
-                <div class="space-y-6">
-                    <div class="w-20 h-20 bg-indigo-600/10 rounded-full flex items-center justify-center mx-auto border border-indigo-500/20">
-                        <i data-lucide="radio" class="w-8 h-8 text-indigo-400 pulse"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-black text-white uppercase tracking-tighter">Sync Active</h2>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-[0.2em] mt-1">Room: ${key}</p>
-                    </div>
-                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                        <div id="sync-timer-bar" class="h-full bg-indigo-500 w-full"></div>
-                    </div>
-                    <p class="text-[9px] text-slate-600 uppercase font-medium">Listening for peers on this frequency...</p>
-                    <button onclick="closeModal()" class="w-full py-4 bg-slate-800 text-slate-300 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Cancel</button>
-                </div>
-            `;
-            lucide.createIcons();
-        }
-
-        function openModal(type) {
-            const back = document.getElementById('modal-backdrop');
-            const cont = document.getElementById('modal-container');
-            const content = document.getElementById('modal-content');
-            back.classList.remove('hidden');
-            setTimeout(() => cont.style.transform = 'translateY(0)', 50);
-
-            if (type === 'profile') {
-                content.innerHTML = `<h2 class="text-xl font-black text-white uppercase tracking-tighter">Identity</h2><input id="name-input" value="${state.username}" class="w-full bg-black border border-white/10 rounded-2xl p-4 text-white text-center outline-none focus:border-indigo-500"><button onclick="saveProfile()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest">Update</button>`;
-            } else if (type === 'join') {
-                content.innerHTML = `<h2 class="text-xl font-black text-white uppercase tracking-tighter">Sync Room Key</h2><input id="room-key-input" placeholder="e.g. MySecretRoom" class="w-full bg-black border border-white/10 rounded-2xl p-4 text-center text-xl font-bold text-white outline-none focus:border-indigo-500 uppercase"><button onclick="joinSharedRoom(document.getElementById('room-key-input').value)" class="w-full py-5 bg-indigo-600 text-white rounded-3xl font-bold uppercase text-[10px] tracking-[0.3em]">Link Nodes</button>`;
-            } else if (type === 'loading') {
-                content.innerHTML = `<div class="py-10"><i data-lucide="loader-2" class="w-10 h-10 text-indigo-500 animate-spin mx-auto"></i><p id="loading-msg" class="mt-4 text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Searching for peers...</p></div>`;
-            }
-            lucide.createIcons();
-        }
-
-        function updateLoadingUI(msg) {
-            const el = document.getElementById('loading-msg');
-            if (el) el.innerText = msg;
-        }
-
-        function saveProfile() { state.username = document.getElementById('name-input').value; localStorage.setItem('mesh_name', state.username); closeModal(); }
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
         
-        function closeModal() {
-            document.getElementById('modal-container').style.transform = window.innerWidth < 640 ? 'translateY(100%)' : 'translateY(0)';
-            setTimeout(() => document.getElementById('modal-backdrop').classList.add('hidden'), 300);
-            if (state.pollInterval) clearInterval(state.pollInterval);
-        }
+        {view === 'setup' && (
+          <div className="w-full max-w-sm space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold mb-2">Welcome</h2>
+              <p className="text-gray-400 text-sm">Ultra-lightweight peer-to-peer voice</p>
+            </div>
 
-        window.onload = () => {
-            renderRooms();
-            renderMessages();
-            lucide.createIcons();
-            document.getElementById('msg-input').onkeydown = e => { if (e.key === 'Enter') sendMessage(); };
-        };
-    </script>
-</body>
-</html>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Your Identity</label>
+                <input 
+                  type="text" 
+                  placeholder="Username" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full bg-[#1A1D23] border border-gray-800 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={handleHost}
+                  disabled={!username}
+                  className="flex flex-col items-center justify-center gap-3 p-6 bg-[#1A1D23] border border-gray-800 rounded-xl hover:border-indigo-500 hover:bg-indigo-500/5 transition-all group disabled:opacity-50"
+                >
+                  <Play className="text-indigo-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold">Host Room</span>
+                </button>
+                <button 
+                  onClick={() => setView('join_input')}
+                  disabled={!username}
+                  className="flex flex-col items-center justify-center gap-3 p-6 bg-[#1A1D23] border border-gray-800 rounded-xl hover:border-emerald-500 hover:bg-emerald-500/5 transition-all group disabled:opacity-50"
+                >
+                  <User className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold">Join Room</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'join_input' && (
+          <div className="w-full max-w-sm space-y-6 animate-in fade-in zoom-in-95">
+             <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Room ID</label>
+                <input 
+                  type="text" 
+                  placeholder="Paste Room ID" 
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                  className="w-full bg-[#1A1D23] border border-gray-800 rounded-lg p-4 font-mono text-xl text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setView('setup')} className="flex-1 p-3 rounded-lg border border-gray-800 hover:bg-gray-800 transition-colors">Back</button>
+                <button 
+                  onClick={handleJoin}
+                  className="flex-2 bg-emerald-600 hover:bg-emerald-500 px-8 py-3 rounded-lg font-bold transition-colors"
+                >
+                  Connect
+                </button>
+              </div>
+          </div>
+        )}
+
+        {view === 'lobby' && (
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-8">
+            {/* Local Peer */}
+            <div className={`p-4 rounded-2xl border bg-[#1A1D23] transition-all duration-300 ${isPttActive || (!isMuted && inputMode === 'open') ? 'border-indigo-500/50 shadow-[0_0_20px_rgba(79,70,229,0.1)]' : 'border-gray-800'}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30">
+                  {username[0]?.toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <div className="font-bold flex items-center gap-2">
+                    {username} <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded">YOU</span>
+                  </div>
+                  <div className="text-xs text-gray-500 uppercase tracking-tighter">
+                    {inputMode === 'ptt' ? 'Push-To-Talk' : 'Open Mic'}
+                  </div>
+                </div>
+              </div>
+              <VolumeMeter stream={localStream} isMuted={isMuted || (inputMode === 'ptt' && !isPttActive)} />
+            </div>
+
+            {/* Remote Peers */}
+            {Object.entries(peers).map(([id, peer]) => (
+              <div key={id} className="p-4 rounded-2xl border border-gray-800 bg-[#1A1D23]">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold border border-emerald-500/30">
+                    {peer.name[0]}
+                  </div>
+                  <div>
+                    <div className="font-bold">{peer.name}</div>
+                    <div className="text-xs text-gray-500 tracking-tighter uppercase flex items-center gap-1">
+                      <Volume2 size={10}/> Connected
+                    </div>
+                  </div>
+                </div>
+                <RemoteAudio stream={peer.stream} />
+                <VolumeMeter stream={peer.stream} isMuted={false} />
+              </div>
+            ))}
+
+            {Object.keys(peers).length === 0 && (
+              <div className="col-span-full py-12 text-center text-gray-600 border-2 border-dashed border-gray-800 rounded-3xl">
+                <p>Waiting for others to join...</p>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Control Bar */}
+      {view === 'lobby' && (
+        <footer className="p-6 bg-[#0F1115] border-t border-gray-800 sticky bottom-0 flex justify-center items-center gap-4">
+          <div className="flex items-center gap-2 bg-[#1A1D23] p-1.5 rounded-2xl border border-gray-800 shadow-xl">
+            <button 
+              onClick={toggleMute}
+              className={`p-4 rounded-xl transition-all ${isMuted ? 'bg-rose-500/20 text-rose-500 border border-rose-500/50' : 'bg-gray-800 hover:bg-gray-700 text-gray-300'}`}
+            >
+              {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+            </button>
+            <button 
+              onClick={() => setIsDeafened(!isDeafened)}
+              className={`p-4 rounded-xl transition-all ${isDeafened ? 'bg-amber-500/20 text-amber-500 border border-amber-500/50' : 'bg-gray-800 hover:bg-gray-700 text-gray-300'}`}
+            >
+              <Volume2 size={24} className={isDeafened ? 'opacity-30' : ''} />
+            </button>
+            <div className="w-px h-8 bg-gray-800 mx-2" />
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-4 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 transition-all"
+            >
+              <Settings size={24} />
+            </button>
+            <button 
+              onClick={() => window.location.reload()}
+              className="p-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-lg shadow-rose-500/20"
+            >
+              <PhoneOff size={24} />
+            </button>
+          </div>
+        </footer>
+      )}
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#1A1D23] border border-gray-800 rounded-3xl w-full max-w-md shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold">Audio Settings</h3>
+              <button onClick={() => setIsSettingsOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-gray-400">Input Mode</label>
+                <div className="grid grid-cols-2 gap-2 bg-[#0F1115] p-1 rounded-xl">
+                  <button 
+                    onClick={() => setInputMode('open')}
+                    className={`p-2 rounded-lg text-sm transition-all ${inputMode === 'open' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-500'}`}
+                  >
+                    Open Mic
+                  </button>
+                  <button 
+                    onClick={() => setInputMode('ptt')}
+                    className={`p-2 rounded-lg text-sm transition-all ${inputMode === 'ptt' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-500'}`}
+                  >
+                    Push-to-Talk
+                  </button>
+                </div>
+              </div>
+
+              {inputMode === 'ptt' && (
+                <div className="space-y-2 animate-in slide-in-from-top-2">
+                  <label className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                    <Keyboard size={14} /> PTT Keybind
+                  </label>
+                  <button 
+                    className="w-full bg-[#0F1115] border border-gray-800 p-4 rounded-xl text-indigo-400 font-mono text-lg hover:border-indigo-500 transition-colors"
+                    onClick={() => {
+                      const listener = (e) => {
+                        e.preventDefault();
+                        setPttKey(e.code);
+                        window.removeEventListener('keydown', listener);
+                      };
+                      window.addEventListener('keydown', listener);
+                    }}
+                  >
+                    {pttKey}
+                  </button>
+                  <p className="text-[10px] text-center text-gray-600 uppercase">Click to rebind</p>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-gray-800">
+                <button 
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 p-3 rounded-xl font-bold transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
